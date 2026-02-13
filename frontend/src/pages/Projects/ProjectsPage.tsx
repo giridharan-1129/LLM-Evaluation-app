@@ -1,119 +1,110 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '../../store';
-import { useProject } from '../../store';
-import { selectProject } from '../../store/slices/projectSlice';
-import styles from './Projects.module.css';
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useProject, useAppDispatch } from '../../store'
+import { createProject, fetchProjects } from '../../store/thunks'
+import styles from './Projects.module.css'
 
 /**
  * Projects Page Component
- * Shows list of projects with ability to create new ones
+ * Manage projects and view project details
  */
 const ProjectsPage: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const { projects, isLoading } = useProject();
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [formData, setFormData] = useState({ name: '', description: '' });
+  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
+  const { projects, isLoading, error } = useProject()
 
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+  })
+
+  // Fetch projects on mount
   useEffect(() => {
-    // TODO: Fetch projects on mount
-    // dispatch(fetchProjects())
-  }, [dispatch]);
+    dispatch(fetchProjects(undefined))
+  }, [dispatch])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
 
   const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Call create project thunk
-    setShowCreateForm(false);
-    setFormData({ name: '', description: '' });
-  };
-
-  const handleSelectProject = (projectId: string) => {
-    const project = projects.find((p) => p.id === projectId);
-    if (project) {
-      dispatch(selectProject(project));
-      navigate(`/projects/${projectId}`);
+    e.preventDefault()
+    
+    if (!formData.name.trim()) {
+      alert('Project name is required')
+      return
     }
-  };
+
+    try {
+      await dispatch(createProject(formData)).unwrap()
+      setFormData({ name: '', description: '' })
+      setShowCreateForm(false)
+    } catch (err) {
+      alert('Failed to create project: ' + (typeof err === 'string' ? err : 'Unknown error'))
+    }
+  }
 
   return (
-    <div className={styles.projectsPage}>
+    <div className={styles.container}>
       <div className={styles.header}>
         <h1>Projects</h1>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
           className={styles.createBtn}
+          onClick={() => setShowCreateForm(!showCreateForm)}
         >
-          + New Project
+          {showCreateForm ? 'Cancel' : '+ New Project'}
         </button>
       </div>
 
-      {/* Create Form */}
       {showCreateForm && (
-        <form
-          onSubmit={handleCreateProject}
-          className={styles.createForm}
-        >
-          <div className={styles.formGroup}>
-            <label>Project Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., Customer Support Bot"
-              required
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label>Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe your project..."
-            />
-          </div>
-          <div className={styles.formActions}>
-            <button
-              type="submit"
-              className={styles.submitBtn}
-            >
-              Create
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCreateForm(false)}
-              className={styles.cancelBtn}
-            >
-              Cancel
-            </button>
-          </div>
+        <form className={styles.createForm} onSubmit={handleCreateProject}>
+          <input
+            type="text"
+            name="name"
+            placeholder="Project name"
+            value={formData.name}
+            onChange={handleInputChange}
+            required
+          />
+          <textarea
+            name="description"
+            placeholder="Project description"
+            value={formData.description}
+            onChange={handleInputChange}
+            rows={3}
+          />
+          <button type="submit" className={styles.submitBtn}>
+            Create Project
+          </button>
         </form>
       )}
 
-      {/* Projects Grid */}
-      <div className={styles.projectsGrid}>
-        {isLoading ? (
-          <p>Loading projects...</p>
-        ) : projects.length > 0 ? (
-          projects.map((project) => (
+      {isLoading && <p>Loading projects...</p>}
+      {error && <p className={styles.error}>{error}</p>}
+
+      {projects.length === 0 ? (
+        <p className={styles.emptyState}>
+          No projects yet. Create one to get started!
+        </p>
+      ) : (
+        <div className={styles.projectsList}>
+          {projects.map((project) => (
             <div
               key={project.id}
               className={styles.projectCard}
-              onClick={() => handleSelectProject(project.id)}
+              onClick={() => navigate(`/projects/${project.id}`)}
             >
-              <h3>{project.name}</h3>
+              <h2>{project.name}</h2>
               <p>{project.description}</p>
-              <div className={styles.cardFooter}>
-                <small>Created {new Date(project.createdAt).toLocaleDateString()}</small>
-              </div>
+              <small>Created {new Date(project.created_at).toLocaleDateString()}</small>
             </div>
-          ))
-        ) : (
-          <p>No projects yet. Create one to get started!</p>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
-  );
-};
+  )
+}
 
-export default ProjectsPage;
+export default ProjectsPage
