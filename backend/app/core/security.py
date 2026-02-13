@@ -1,5 +1,6 @@
 """
-Security and Authentication Utilities
+Security utilities
+Password hashing and JWT token management
 """
 
 from datetime import datetime, timedelta
@@ -12,68 +13,71 @@ from config import get_settings
 
 settings = get_settings()
 
-# Password hashing
+# Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    """Hash a password"""
+    """Hash password using bcrypt"""
+    # Bcrypt has a 72-byte limit
+    if len(password.encode('utf-8')) > 72:
+        password = password[:72]
     return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
+    """Verify password"""
+    # Bcrypt has a 72-byte limit
+    if len(plain_password.encode('utf-8')) > 72:
+        plain_password = plain_password[:72]
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def create_access_token(user_id: UUID, expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    expire = datetime.utcnow() + expires_delta
     to_encode = {
-        "sub": str(user_id),
-        "exp": expire,
-        "iat": datetime.utcnow(),
+        "user_id": str(user_id),
         "type": "access",
+        "exp": expire,
     }
-
+    
     encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
     )
     return encoded_jwt
 
 
 def create_refresh_token(user_id: UUID) -> str:
     """Create JWT refresh token"""
-    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-
+    expire = datetime.utcnow() + timedelta(days=7)
     to_encode = {
-        "sub": str(user_id),
-        "exp": expire,
-        "iat": datetime.utcnow(),
+        "user_id": str(user_id),
         "type": "refresh",
+        "exp": expire,
     }
-
+    
     encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
     )
     return encoded_jwt
 
 
 def decode_token(token: str) -> Optional[dict]:
-    """Decode and validate JWT token"""
+    """Decode JWT token"""
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
         )
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            return None
-        return {"user_id": UUID(user_id), "type": payload.get("type")}
+        return payload
     except JWTError:
         return None

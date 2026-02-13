@@ -3,15 +3,8 @@ from app.schemas.user import (
     UserCreate,
     UserUpdate,
     UserResponse,
-    UserLogin,
+    LoginCredentials,
     TokenResponse,
-)
-from app.schemas.project import (
-    ProjectBase,
-    ProjectCreate,
-    ProjectUpdate,
-    ProjectResponse,
-    ProjectListResponse,
 )
 
 __all__ = [
@@ -19,11 +12,6 @@ __all__ = [
     "UserCreate",
     "UserUpdate",
     "UserResponse",
-    "UserLogin",
+    "LoginCredentials",
     "TokenResponse",
-    "ProjectBase",
-    "ProjectCreate",
-    "ProjectUpdate",
-    "ProjectResponse",
-    "ProjectListResponse",
 ]

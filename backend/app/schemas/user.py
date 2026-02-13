@@ -1,43 +1,51 @@
 """
-User Pydantic Schemas
-Request/response validation models
+User Schemas
+Pydantic models for request/response validation
 """
 
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from uuid import UUID
-
-from app.models.user import UserRole
+from datetime import datetime
 
 
 class UserBase(BaseModel):
     """Base user schema"""
-    email: EmailStr
-    name: str = Field(..., min_length=1, max_length=255)
+    email: EmailStr = Field(..., description="User email")
+    name: str = Field(..., min_length=1, max_length=255, description="User name")
 
 
 class UserCreate(UserBase):
     """User creation schema"""
-    password: str = Field(..., min_length=8, max_length=255)
-    confirm_password: str = Field(..., min_length=8, max_length=255)
+    password: str = Field(..., min_length=8, max_length=72, description="User password (max 72 bytes for bcrypt)")
+    confirm_password: str = Field(..., min_length=8, max_length=72, description="Confirm password")
 
-    def validate_passwords(self):
-        """Validate password match"""
-        if self.password != self.confirm_password:
-            raise ValueError("Passwords do not match")
+    @field_validator('password')
+    @classmethod
+    def validate_password_length(cls, v):
+        """Ensure password is not longer than 72 bytes"""
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError('Password must be 72 bytes or less')
+        return v
+
+
+class LoginCredentials(BaseModel):
+    """Login credentials schema"""
+    email: EmailStr = Field(..., description="User email")
+    password: str = Field(..., description="User password")
 
 
 class UserUpdate(BaseModel):
     """User update schema"""
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
+    name: str | None = None
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     """User response schema"""
     id: UUID
-    role: UserRole
+    email: str
+    name: str
+    role: str
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -46,16 +54,10 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
-class UserLogin(BaseModel):
-    """User login schema"""
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-
-
 class TokenResponse(BaseModel):
     """Token response schema"""
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str
     expires_in: int
     user: UserResponse
