@@ -7,6 +7,16 @@ from app.schemas.user import (
     TokenResponse,
 )
 
+from app.schemas.prompt import (
+    PromptBase,
+    PromptCreate,
+    PromptUpdate,
+    PromptResponse,
+    PromptDetailResponse,
+    PromptVersionCreate,
+    PromptVersionResponse,
+)
+
 __all__ = [
     "UserBase",
     "UserCreate",
@@ -14,4 +24,11 @@ __all__ = [
     "UserResponse",
     "LoginCredentials",
     "TokenResponse",
+    "PromptBase",
+    "PromptCreate",
+    "PromptUpdate",
+    "PromptResponse",
+    "PromptDetailResponse",
+    "PromptVersionCreate",
+    "PromptVersionResponse",
 ]
