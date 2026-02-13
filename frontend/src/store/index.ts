@@ -1,6 +1,4 @@
-export { store as default, store } from './store';
-export type { RootState, AppDispatch, AppThunk } from './store';
-
+export { store, type RootState, type AppDispatch } from './store'
 export {
   useAppDispatch,
   useAppSelector,
@@ -10,6 +8,5 @@ export {
   useJob,
   useMetrics,
   useUI,
-} from './hooks';
-
-export * from './slices';
+} from './hooks'
+export * from './thunks'
