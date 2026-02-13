@@ -1,56 +1,59 @@
-export { default as authReducer } from './authSlice';
-export { default as projectReducer } from './projectSlice';
-export { default as promptReducer } from './promptSlice';
-export { default as jobReducer } from './jobSlice';
-export { default as metricsReducer } from './metricsSlice';
-export { default as uiReducer } from './uiSlice';
+export {
+  loginSuccess,
+  registerSuccess,
+  logout,
+  setError as authSetError,
+  clearError as authClearError,
+} from './authSlice'
 
-export * from './authSlice';
 export {
-  fetchProjectsStart,
-  fetchProjectsSuccess,
-  fetchProjectsFailure,
-  createProjectStart,
-  createProjectSuccess,
-  createProjectFailure,
+  setProjects,
   selectProject,
-  updateProjectSuccess,
-  deleteProjectSuccess,
-  setPagination,
-  clearError as projectClearError,
-} from './projectSlice';
+  addProject,
+  updateProject,
+  deleteProject,
+  setProjectLoading,
+  setProjectError,
+  setPagination as setProjectPagination,
+} from './projectSlice'
+
 export {
-  fetchPromptsStart,
-  fetchPromptsSuccess,
-  fetchPromptsFailure,
-  createPromptSuccess,
-  addVersionSuccess,
+  setPrompts,
   selectPrompt,
+  addPrompt,
+  updatePrompt,
+  deletePrompt,
+  setVersions,
   selectVersion,
-  deletePromptSuccess,
-  clearError as promptClearError,
-} from './promptSlice';
+  setPromptLoading,
+  setPromptError,
+} from './promptSlice'
+
 export {
-  fetchJobsStart,
-  fetchJobsSuccess,
-  fetchJobsFailure,
-  createJobSuccess,
+  setJobs,
   selectJob,
+  addJob,
   updateJobProgress,
-  jobCompleted,
-  jobFailed,
-  fetchJobEntriesSuccess,
-  addJobEntry,
-  clearError as jobClearError,
-} from './jobSlice';
+  setJobEntries,
+  setJobLoading,
+  setJobError,
+  setPagination as setJobPagination,
+} from './jobSlice'
+
 export {
-  fetchMetricsStart,
-  fetchJobMetricsSuccess,
-  fetchProjectMetricsSuccess,
-  fetchMetricsFailure,
-  selectJobMetrics,
-  updateJobMetrics,
-  clearJobMetrics,
-  clearError as metricsClearError,
-} from './metricsSlice';
-export * from './uiSlice';
+  setJobMetrics,
+  setProjectMetrics,
+  setMetricsLoading,
+  setMetricsError,
+} from './metricsSlice'
+
+export {
+  showNotification,
+  dismissNotification,
+  openModal,
+  closeModal,
+  toggleSidebar,
+  setSidebarOpen,
+  setTheme,
+  setLoading,
+} from './uiSlice'

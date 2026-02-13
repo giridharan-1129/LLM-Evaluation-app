@@ -1,119 +1,141 @@
-/**
- * Auth Slice
- * Manages user authentication state, login, logout, registration
- */
-
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { AuthState, User, AuthResponse } from '../types';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { loginUser, registerUser, refreshSession, logoutUser } from '../thunks'
+import type { AuthState, AuthResponse } from '../types'
 
 const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   user: null,
   token: null,
+  refreshToken: null,
   error: null,
+  expiresIn: null,
   sessionExpiredAt: null,
-};
+}
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    // Action: Start login process
-    loginStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-
-    // Action: Login successful
     loginSuccess: (state, action: PayloadAction<AuthResponse>) => {
-      state.isAuthenticated = true;
-      state.isLoading = false;
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-      state.error = null;
-      // Set session expiration time
-      state.sessionExpiredAt = Date.now() + action.payload.expiresIn * 1000;
+      state.isAuthenticated = true
+      state.user = action.payload.user
+      state.token = action.payload.access_token
+      state.refreshToken = action.payload.refresh_token
+      state.expiresIn = action.payload.expires_in
+      state.sessionExpiredAt = Date.now() + action.payload.expires_in * 1000
+      state.error = null
     },
 
-    // Action: Login failed
-    loginFailure: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-      state.isAuthenticated = false;
-    },
-
-    // Action: Start registration process
-    registerStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-
-    // Action: Registration successful
     registerSuccess: (state, action: PayloadAction<AuthResponse>) => {
-      state.isAuthenticated = true;
-      state.isLoading = false;
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-      state.error = null;
-      state.sessionExpiredAt = Date.now() + action.payload.expiresIn * 1000;
+      state.isAuthenticated = true
+      state.user = action.payload.user
+      state.token = action.payload.access_token
+      state.refreshToken = action.payload.refresh_token
+      state.expiresIn = action.payload.expires_in
+      state.sessionExpiredAt = Date.now() + action.payload.expires_in * 1000
+      state.error = null
     },
 
-    // Action: Registration failed
-    registerFailure: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-
-    // Action: Logout user
     logout: (state) => {
-      state.isAuthenticated = false;
-      state.user = null;
-      state.token = null;
-      state.error = null;
-      state.sessionExpiredAt = null;
+      state.isAuthenticated = false
+      state.user = null
+      state.token = null
+      state.refreshToken = null
+      state.error = null
+      state.expiresIn = null
+      state.sessionExpiredAt = null
     },
 
-    // Action: Session expired
-    sessionExpired: (state) => {
-      state.isAuthenticated = false;
-      state.user = null;
-      state.token = null;
-      state.error = 'Session expired. Please login again.';
-      state.sessionExpiredAt = null;
+    setError: (state, action: PayloadAction<string>) => {
+      state.error = action.payload
     },
 
-    // Action: Clear error message
     clearError: (state) => {
-      state.error = null;
-    },
-
-    // Action: Restore session from storage
-    restoreSession: (
-      state,
-      action: PayloadAction<{ user: User; token: string; expiresIn: number }>
-    ) => {
-      state.isAuthenticated = true;
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-      state.sessionExpiredAt = Date.now() + action.payload.expiresIn * 1000;
+      state.error = null
     },
   },
-});
 
-// Export actions for use in components
-export const {
-  loginStart,
-  loginSuccess,
-  loginFailure,
-  registerStart,
-  registerSuccess,
-  registerFailure,
-  logout,
-  sessionExpired,
-  clearError,
-  restoreSession,
-} = authSlice.actions;
+  extraReducers: (builder) => {
+    // Login
+    builder
+      .addCase(loginUser.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.isAuthenticated = true
+        state.user = action.payload.user
+        state.token = action.payload.access_token
+        state.refreshToken = action.payload.refresh_token
+        state.expiresIn = action.payload.expires_in
+        state.sessionExpiredAt = Date.now() + action.payload.expires_in * 1000
+      })
+      .addCase(loginUser.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
 
-// Export reducer for store configuration
-export default authSlice.reducer;
+    // Register
+    builder
+      .addCase(registerUser.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(registerUser.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.isAuthenticated = true
+        state.user = action.payload.user
+        state.token = action.payload.access_token
+        state.refreshToken = action.payload.refresh_token
+        state.expiresIn = action.payload.expires_in
+        state.sessionExpiredAt = Date.now() + action.payload.expires_in * 1000
+      })
+      .addCase(registerUser.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+
+    // Refresh Session
+    builder
+      .addCase(refreshSession.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(refreshSession.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.token = action.payload.access_token
+        state.refreshToken = action.payload.refresh_token
+        state.expiresIn = action.payload.expires_in
+        state.sessionExpiredAt = Date.now() + action.payload.expires_in * 1000
+      })
+      .addCase(refreshSession.rejected, (state, action) => {
+        state.isLoading = false
+        state.isAuthenticated = false
+        state.user = null
+        state.token = null
+        state.error = action.payload as string
+      })
+
+    // Logout
+    builder
+      .addCase(logoutUser.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.isLoading = false
+        state.isAuthenticated = false
+        state.user = null
+        state.token = null
+        state.refreshToken = null
+        state.sessionExpiredAt = null
+      })
+      .addCase(logoutUser.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+  },
+})
+
+export const { loginSuccess, registerSuccess, logout, setError, clearError } = authSlice.actions
+export default authSlice.reducer

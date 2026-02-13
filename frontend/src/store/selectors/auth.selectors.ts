@@ -1,34 +1,14 @@
-import { createSelector } from '@reduxjs/toolkit';
-import type { RootState } from '../store';
+import { RootState } from '../store'
 
-// Base selector - returns auth state
-const selectAuthState = (state: RootState) => state.auth;
+export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated
+export const selectIsLoading = (state: RootState) => state.auth.isLoading
+export const selectUser = (state: RootState) => state.auth.user
+export const selectToken = (state: RootState) => state.auth.token
+export const selectError = (state: RootState) => state.auth.error
+export const selectExpiresIn = (state: RootState) => state.auth.expiresIn
+export const selectSessionExpiredAt = (state: RootState) => state.auth.sessionExpiredAt
 
-// Memoized selectors - only recompute if input changes
-export const selectIsAuthenticated = createSelector(
-  [selectAuthState],
-  (auth) => auth.isAuthenticated
-);
-
-export const selectUser = createSelector([selectAuthState], (auth) => auth.user);
-
-export const selectToken = createSelector([selectAuthState], (auth) => auth.token);
-
-export const selectAuthError = createSelector([selectAuthState], (auth) => auth.error);
-
-export const selectAuthIsLoading = createSelector([selectAuthState], (auth) => auth.isLoading);
-
-export const selectSessionExpiredAt = createSelector(
-  [selectAuthState],
-  (auth) => auth.sessionExpiredAt
-);
-
-// Composed selector
-export const selectAuthStatus = createSelector(
-  [selectIsAuthenticated, selectAuthIsLoading, selectAuthError],
-  (isAuthenticated, isLoading, error) => ({
-    isAuthenticated,
-    isLoading,
-    error,
-  })
-);
+export const selectIsSessionExpired = (state: RootState) => {
+  if (!state.auth.sessionExpiredAt) return false
+  return Date.now() > state.auth.sessionExpiredAt
+}

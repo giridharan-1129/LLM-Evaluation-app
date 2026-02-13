@@ -1,10 +1,5 @@
-/**
- * Job Slice
- * Manages evaluation jobs, progress tracking, and job entries
- */
-
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { JobState, EvaluationJob, EvaluationEntry, UpdateJobProgressPayload } from '../types';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import type { JobState, EvaluationJob, EvaluationEntry, UpdateJobProgressPayload } from '../types'
 
 const initialState: JobState = {
   jobs: [],
@@ -17,104 +12,62 @@ const initialState: JobState = {
     limit: 10,
     total: 0,
   },
-};
+}
 
 const jobSlice = createSlice({
   name: 'job',
   initialState,
   reducers: {
-    // Action: Start fetching jobs
-    fetchJobsStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
+    setJobs: (state, action: PayloadAction<EvaluationJob[]>) => {
+      state.jobs = action.payload
     },
 
-    // Action: Jobs fetched successfully
-    fetchJobsSuccess: (state, action: PayloadAction<{ jobs: EvaluationJob[]; total: number }>) => {
-      state.isLoading = false;
-      state.jobs = action.payload.jobs;
-      state.pagination.total = action.payload.total;
-      state.error = null;
-    },
-
-    // Action: Fetch jobs failed
-    fetchJobsFailure: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-
-    // Action: Create job
-    createJobSuccess: (state, action: PayloadAction<EvaluationJob>) => {
-      state.jobs.unshift(action.payload);
-      state.pagination.total += 1;
-      state.selectedJob = action.payload;
-    },
-
-    // Action: Select a job
     selectJob: (state, action: PayloadAction<EvaluationJob>) => {
-      state.selectedJob = action.payload;
+      state.selectedJob = action.payload
     },
 
-    // Action: Update job progress
+    addJob: (state, action: PayloadAction<EvaluationJob>) => {
+      state.jobs.push(action.payload)
+    },
+
     updateJobProgress: (state, action: PayloadAction<UpdateJobProgressPayload>) => {
-      const job = state.jobs.find((j) => j.id === action.payload.jobId);
+      const job = state.jobs.find((j) => j.id === action.payload.job_id)
       if (job) {
-        job.processedEntries = action.payload.processedEntries;
-        job.progress = Math.round(
-          (action.payload.processedEntries / action.payload.totalEntries) * 100
-        );
+        job.progress = action.payload.progress
+        job.completed_entries = action.payload.completed_entries
       }
     },
 
-    // Action: Job completed
-    jobCompleted: (state, action: PayloadAction<EvaluationJob>) => {
-      const index = state.jobs.findIndex((j) => j.id === action.payload.id);
-      if (index !== -1) {
-        state.jobs[index] = action.payload;
-      }
-      if (state.selectedJob?.id === action.payload.id) {
-        state.selectedJob = action.payload;
-      }
+    setJobEntries: (state, action: PayloadAction<EvaluationEntry[]>) => {
+      state.jobEntries = action.payload
     },
 
-    // Action: Job failed
-    jobFailed: (state, action: PayloadAction<{ jobId: string; error: string }>) => {
-      const job = state.jobs.find((j) => j.id === action.payload.jobId);
-      if (job) {
-        job.status = 'failed';
-      }
-      state.error = action.payload.error;
+    setJobLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload
     },
 
-    // Action: Fetch job entries
-    fetchJobEntriesSuccess: (state, action: PayloadAction<EvaluationEntry[]>) => {
-      state.jobEntries = action.payload;
+    setJobError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload
     },
 
-    // Action: Add job entry
-    addJobEntry: (state, action: PayloadAction<EvaluationEntry>) => {
-      state.jobEntries.push(action.payload);
-    },
-
-    // Action: Clear error
-    clearError: (state) => {
-      state.error = null;
+    setPagination: (
+      state,
+      action: PayloadAction<{ page: number; limit: number; total: number }>
+    ) => {
+      state.pagination = action.payload
     },
   },
-});
+})
 
 export const {
-  fetchJobsStart,
-  fetchJobsSuccess,
-  fetchJobsFailure,
-  createJobSuccess,
+  setJobs,
   selectJob,
+  addJob,
   updateJobProgress,
-  jobCompleted,
-  jobFailed,
-  fetchJobEntriesSuccess,
-  addJobEntry,
-  clearError,
-} = jobSlice.actions;
+  setJobEntries,
+  setJobLoading,
+  setJobError,
+  setPagination,
+} = jobSlice.actions
 
-export default jobSlice.reducer;
+export default jobSlice.reducer

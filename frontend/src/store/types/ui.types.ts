@@ -1,46 +1,37 @@
-/**
- * UI State Types
- * Manages UI-specific state (modals, notifications, loading)
- */
-
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-
 export interface Notification {
-  id: string;
-  type: NotificationType;
-  message: string;
-  description?: string;
-  duration?: number;
-  createdAt: number;
-}
-
-export interface Modal {
-  id: string;
-  isOpen: boolean;
-  title?: string;
-  data?: unknown;
-}
-
-export interface UIState {
-  notifications: Notification[];
-  modals: Record<string, Modal>;
-  sidebarOpen: boolean;
-  theme: 'light' | 'dark';
-  loading: {
-    global: boolean;
-    [key: string]: boolean;
-  };
+  id: string
+  message: string
+  type: 'success' | 'error' | 'info' | 'warning'
+  duration?: number
 }
 
 export interface ShowNotificationPayload {
-  type: NotificationType;
-  message: string;
-  description?: string;
-  duration?: number;
+  message: string
+  type: 'success' | 'error' | 'info' | 'warning'
+  duration?: number
+}
+
+export interface Modal {
+  name: string
+  isOpen: boolean
+  title?: string
+  data?: Record<string, any>
 }
 
 export interface OpenModalPayload {
-  id: string;
-  title?: string;
-  data?: unknown;
+  name: string
+  title?: string
+  data?: Record<string, any>
+}
+
+export interface UIState {
+  notifications: Notification[]
+  modals: {
+    [key: string]: Modal
+  }
+  sidebarOpen: boolean
+  theme: 'light' | 'dark'
+  loading: {
+    [key: string]: boolean
+  }
 }

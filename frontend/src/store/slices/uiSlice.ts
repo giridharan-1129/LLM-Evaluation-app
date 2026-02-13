@@ -1,16 +1,13 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { nanoid } from 'nanoid';
-import type { UIState, Notification, ShowNotificationPayload, OpenModalPayload } from '../types';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import type { UIState, ShowNotificationPayload, OpenModalPayload, Notification } from '../types'
 
 const initialState: UIState = {
   notifications: [],
   modals: {},
   sidebarOpen: true,
   theme: 'light',
-  loading: {
-    global: false,
-  },
-};
+  loading: {},
+}
 
 const uiSlice = createSlice({
   name: 'ui',
@@ -18,78 +15,63 @@ const uiSlice = createSlice({
   reducers: {
     showNotification: (state, action: PayloadAction<ShowNotificationPayload>) => {
       const notification: Notification = {
-        id: nanoid(),
-        type: action.payload.type,
+        id: Date.now().toString(),
         message: action.payload.message,
-        description: action.payload.description,
-        duration: action.payload.duration ?? 3000,
-        createdAt: Date.now(),
-      };
-      state.notifications.push(notification);
+        type: action.payload.type,
+        duration: action.payload.duration || 5000,
+      }
+      state.notifications.push(notification)
     },
 
-    removeNotification: (state, action: PayloadAction<string>) => {
-      state.notifications = state.notifications.filter((n) => n.id !== action.payload);
-    },
-
-    clearNotifications: (state) => {
-      state.notifications = [];
+    dismissNotification: (state, action: PayloadAction<string>) => {
+      state.notifications = state.notifications.filter(
+        (n) => n.id !== action.payload
+      )
     },
 
     openModal: (state, action: PayloadAction<OpenModalPayload>) => {
-      state.modals[action.payload.id] = {
-        id: action.payload.id,
+      state.modals[action.payload.name] = {
+        name: action.payload.name,
         isOpen: true,
         title: action.payload.title,
         data: action.payload.data,
-      };
+      }
     },
 
     closeModal: (state, action: PayloadAction<string>) => {
-      const modal = state.modals[action.payload];
+      const modal = state.modals[action.payload]
       if (modal) {
-        modal.isOpen = false;
+        modal.isOpen = false
       }
     },
 
     toggleSidebar: (state) => {
-      state.sidebarOpen = !state.sidebarOpen;
+      state.sidebarOpen = !state.sidebarOpen
     },
 
     setSidebarOpen: (state, action: PayloadAction<boolean>) => {
-      state.sidebarOpen = action.payload;
-    },
-
-    toggleTheme: (state) => {
-      state.theme = state.theme === 'light' ? 'dark' : 'light';
+      state.sidebarOpen = action.payload
     },
 
     setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
-      state.theme = action.payload;
+      state.theme = action.payload
     },
 
-    setGlobalLoading: (state, action: PayloadAction<boolean>) => {
-      state.loading.global = action.payload;
-    },
-
-    setLoading: (state, action: PayloadAction<{ key: string; isLoading: boolean }>) => {
-      state.loading[action.payload.key] = action.payload.isLoading;
+    setLoading: (state, action: PayloadAction<{ key: string; value: boolean }>) => {
+      state.loading[action.payload.key] = action.payload.value
     },
   },
-});
+})
 
 export const {
   showNotification,
-  removeNotification,
-  clearNotifications,
+  dismissNotification,
   openModal,
   closeModal,
   toggleSidebar,
   setSidebarOpen,
-  toggleTheme,
   setTheme,
-  setGlobalLoading,
   setLoading,
-} = uiSlice.actions;
+} = uiSlice.actions
 
-export default uiSlice.reducer;
+export default uiSlice.reducer

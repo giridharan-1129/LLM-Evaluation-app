@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAppDispatch } from '../../store';
-import { registerSuccess } from '../../store/slices/authSlice';
-import styles from './Auth.module.css';
+import React, { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { useAppDispatch } from '../../store'
+import { registerUser } from '../../store/thunks'
+import styles from './Auth.module.css'
 
 /**
  * Register Page Component
@@ -14,51 +14,51 @@ const RegisterPage: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-  });
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  })
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+    e.preventDefault()
+    setError('')
 
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
+      setError('Passwords do not match')
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
-      dispatch(
-        registerSuccess({
-          token: 'mock-token',
-          user: {
-            id: '1',
-            email: formData.email,
-            name: formData.name,
-            role: 'user',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          expiresIn: 3600,
+      // Dispatch the real registerUser thunk
+      await dispatch(
+        registerUser({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          confirm_password: formData.confirmPassword,
         })
-      );
-      navigate('/');
+      ).unwrap()
+
+      // If successful, navigate to dashboard
+      navigate('/')
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      // Handle error from thunk rejection
+      const errorMessage = typeof err === 'string' ? err : 'Registration failed. Please try again.'
+      setError(errorMessage)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className={styles.authContainer}>
@@ -66,10 +66,7 @@ const RegisterPage: React.FC = () => {
         <h1 className={styles.title}>Create Account</h1>
         <p className={styles.subtitle}>Sign up to get started</p>
 
-        <form
-          onSubmit={handleSubmit}
-          className={styles.form}
-        >
+        <form onSubmit={handleSubmit} className={styles.form}>
           {error && <div className={styles.error}>{error}</div>}
 
           <div className={styles.formGroup}>
@@ -128,27 +125,20 @@ const RegisterPage: React.FC = () => {
             />
           </div>
 
-          <button
-            type="submit"
-            className={styles.submitBtn}
-            disabled={isLoading}
-          >
+          <button type="submit" className={styles.submitBtn} disabled={isLoading}>
             {isLoading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 
         <p className={styles.footer}>
           Already have an account?{' '}
-          <Link
-            to="/login"
-            className={styles.link}
-          >
+          <Link to="/login" className={styles.link}>
             Sign in
           </Link>
         </p>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default RegisterPage;
+export default RegisterPage
