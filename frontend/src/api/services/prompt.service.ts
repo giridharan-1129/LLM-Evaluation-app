@@ -1,33 +1,44 @@
-import { apiClient } from '../client';
-import type {
-  Prompt,
-  PromptVersion,
-  CreatePromptPayload,
-  CreateVersionPayload,
-} from '../../store/types';
+import { apiClient } from '../client'
+import type { PromptCreate, PromptVersionCreate } from '../../store/types'
 
 export const promptService = {
-  async getPromptsByProject(projectId: string): Promise<Prompt[]> {
-    const { data } = await apiClient.get(`/projects/${projectId}/prompts`);
-    return data;
+  async getPromptsByProject(projectId: string, page: number = 1, limit: number = 10) {
+    const { data } = await apiClient.get(`/prompts/project/${projectId}`, {
+      params: { page, limit },
+    })
+    return data
   },
 
-  async getPrompt(id: string): Promise<Prompt> {
-    const { data } = await apiClient.get(`/prompts/${id}`);
-    return data;
+  async getPromptById(promptId: string) {
+    const { data } = await apiClient.get(`/prompts/${promptId}`)
+    return data
   },
 
-  async createPrompt(payload: CreatePromptPayload): Promise<Prompt> {
-    const { data } = await apiClient.post('/prompts', payload);
-    return data;
+  async createPrompt(projectId: string, payload: PromptCreate) {
+    const { data } = await apiClient.post('/prompts/', {
+      project_id: projectId,
+      ...payload,
+    })
+    return data
   },
 
-  async createVersion(payload: CreateVersionPayload): Promise<PromptVersion> {
-    const { data } = await apiClient.post(`/prompts/${payload.promptId}/versions`, payload);
-    return data;
+  async updatePrompt(promptId: string, payload: any) {
+    const { data } = await apiClient.put(`/prompts/${promptId}`, payload)
+    return data
   },
 
-  async deletePrompt(id: string): Promise<void> {
-    await apiClient.delete(`/prompts/${id}`);
+  async deletePrompt(promptId: string) {
+    const { data } = await apiClient.delete(`/prompts/${promptId}`)
+    return data
   },
-};
+
+  async createPromptVersion(promptId: string, payload: PromptVersionCreate) {
+    const { data } = await apiClient.post(`/prompts/${promptId}/versions`, payload)
+    return data
+  },
+
+  async getPromptVersions(promptId: string) {
+    const { data } = await apiClient.get(`/prompts/${promptId}/versions`)
+    return data
+  },
+}

@@ -1,18 +1,16 @@
-import { UUID } from 'crypto'
-
-export interface EvaluationEntry {
-  id: UUID
-  job_id: UUID
+export interface JobEntry {
+  id: string
+  job_id: string
   input: string
   expected_output: string
-  actual_output: string
-  score: number
+  actual_output?: string
+  score?: number
   created_at: string
 }
 
 export interface EvaluationJob {
-  id: UUID
-  project_id: UUID
+  id: string
+  project_id: string
   name: string
   description?: string
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -25,7 +23,7 @@ export interface EvaluationJob {
 }
 
 export interface CreateJobPayload {
-  project_id: UUID
+  project_id: string
   name: string
   description?: string
   entries: Array<{
@@ -35,7 +33,7 @@ export interface CreateJobPayload {
 }
 
 export interface UpdateJobProgressPayload {
-  job_id: UUID
+  job_id: string
   progress: number
   completed_entries: number
 }
@@ -43,7 +41,7 @@ export interface UpdateJobProgressPayload {
 export interface JobState {
   jobs: EvaluationJob[]
   selectedJob: EvaluationJob | null
-  jobEntries: EvaluationEntry[]
+  jobEntries: JobEntry[]
   isLoading: boolean
   error: string | null
   pagination: {

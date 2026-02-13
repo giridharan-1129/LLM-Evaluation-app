@@ -1,66 +1,73 @@
-import React, { useEffect } from 'react';
-import { useAppDispatch } from '../../store';
-import { useAuth, useProject, useJob, useMetrics } from '../../store';
-import styles from './Dashboard.module.css';
+import React, { useEffect } from 'react'
+import { useAuth, useProject, useJob, useMetrics, useAppDispatch } from '../../store'
+import { fetchProjects } from '../../store/thunks'
+import { useNavigate } from 'react-router-dom'
+import styles from './Dashboard.module.css'
 
 /**
  * Dashboard Page Component
- * Shows overview of projects, recent jobs, and key metrics
+ * Main landing page showing overview and recent activity
  */
 const DashboardPage: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { user } = useAuth();
-  const { projects } = useProject();
-  const { jobs } = useJob();
-  const { projectMetrics } = useMetrics();
+  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const { projects } = useProject()
+  const { jobs } = useJob()
+  const { projectMetrics } = useMetrics()
 
   useEffect(() => {
-    // TODO: Fetch projects on mount
-  }, [dispatch]);
+    dispatch(fetchProjects(undefined))
+  }, [dispatch])
 
-  const recentJobs = jobs.slice(0, 5);
-  const totalProjects = projects.length;
-  const completedJobs = jobs.filter((j) => j.status === 'completed').length;
+  const recentJobs = jobs.slice(0, 5)
 
   return (
-    <div className={styles.dashboard}>
+    <div className={styles.container}>
       <div className={styles.header}>
         <h1>Welcome back, {user?.name}! 👋</h1>
-        <p>Here&apos;s what&apos;s happening with your evaluation platform.</p>
+        <p>Here's what's happening with your evaluation platform.</p>
       </div>
 
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
-          <h3>Total Projects</h3>
-          <p className={styles.statValue}>{totalProjects}</p>
+          <h3>TOTAL PROJECTS</h3>
+          <p className={styles.statValue}>{projects.length}</p>
         </div>
+
         <div className={styles.statCard}>
-          <h3>Completed Jobs</h3>
-          <p className={styles.statValue}>{completedJobs}</p>
+          <h3>COMPLETED JOBS</h3>
+          <p className={styles.statValue}>{jobs.filter((j) => j.status === 'completed').length}</p>
         </div>
+
         <div className={styles.statCard}>
-          <h3>Avg Accuracy</h3>
-          <p className={styles.statValue}>{projectMetrics?.averageAccuracy.toFixed(1)}%</p>
+          <h3>AVG ACCURACY</h3>
+          <p className={styles.statValue}>{projectMetrics?.avg_accuracy.toFixed(1) || 0}%</p>
         </div>
       </div>
 
-      <div className={styles.section}>
+      <div className={styles.recentSection}>
         <h2>Recent Jobs</h2>
-        {recentJobs.length > 0 ? (
-          <table className={styles.table}>
+        {recentJobs.length === 0 ? (
+          <p className={styles.emptyState}>No jobs yet. Create one to get started!</p>
+        ) : (
+          <table className={styles.jobsTable}>
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Status</th>
                 <th>Progress</th>
+                <th>Created</th>
               </tr>
             </thead>
             <tbody>
               {recentJobs.map((job) => (
-                <tr key={job.id}>
+                <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}>
                   <td>{job.name}</td>
                   <td>
-                    <span className={`${styles.badge} ${styles[job.status]}`}>{job.status}</span>
+                    <span className={`${styles.status} ${styles[job.status]}`}>
+                      {job.status}
+                    </span>
                   </td>
                   <td>
                     <div className={styles.progressBar}>
@@ -70,16 +77,15 @@ const DashboardPage: React.FC = () => {
                       />
                     </div>
                   </td>
+                  <td>{new Date(job.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : (
-          <p className={styles.empty}>No jobs yet. Create one to get started!</p>
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default DashboardPage;
+export default DashboardPage

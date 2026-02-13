@@ -17,14 +17,15 @@ export type {
 export type {
   Prompt,
   PromptVersion,
-  CreatePromptPayload,
-  CreateVersionPayload,
+  PromptCreate,
+  PromptVersionCreate,
+  PromptUpdate,
   PromptState,
 } from './prompt.types'
 
 export type {
   EvaluationJob,
-  EvaluationEntry,
+  JobEntry,
   CreateJobPayload,
   UpdateJobProgressPayload,
   JobState,

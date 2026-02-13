@@ -1,10 +1,12 @@
-/**
- * Prompt Slice
- * Manages prompts, versions, and prompt selection
- */
-
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { PromptState, Prompt, PromptVersion } from '../types';
+import { createSlice } from '@reduxjs/toolkit'
+import {
+  fetchPromptsByProject,
+  fetchPromptById,
+  createPrompt,
+  createPromptVersion,
+  deletePrompt,
+} from '../thunks'
+import type { PromptState } from '../types'
 
 const initialState: PromptState = {
   prompts: [],
@@ -12,86 +14,107 @@ const initialState: PromptState = {
   selectedVersion: null,
   isLoading: false,
   error: null,
-};
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+  },
+}
 
 const promptSlice = createSlice({
   name: 'prompt',
   initialState,
   reducers: {
-    // Action: Start fetching prompts
-    fetchPromptsStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
+    selectPrompt: (state, action) => {
+      state.selectedPrompt = action.payload
     },
-
-    // Action: Prompts fetched successfully
-    fetchPromptsSuccess: (state, action: PayloadAction<Prompt[]>) => {
-      state.isLoading = false;
-      state.prompts = action.payload;
-      state.error = null;
-    },
-
-    // Action: Fetch prompts failed
-    fetchPromptsFailure: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-
-    // Action: Create prompt
-    createPromptSuccess: (state, action: PayloadAction<Prompt>) => {
-      state.prompts.push(action.payload);
-      state.selectedPrompt = action.payload;
-      state.selectedVersion = action.payload.versions[0];
-    },
-
-    // Action: Add new version to prompt
-    addVersionSuccess: (
-      state,
-      action: PayloadAction<{ promptId: string; version: PromptVersion }>
-    ) => {
-      const prompt = state.prompts.find((p) => p.id === action.payload.promptId);
-      if (prompt) {
-        prompt.versions.push(action.payload.version);
-      }
-    },
-
-    // Action: Select a prompt
-    selectPrompt: (state, action: PayloadAction<Prompt>) => {
-      state.selectedPrompt = action.payload;
-      state.selectedVersion = action.payload.versions[0];
-    },
-
-    // Action: Select a version
-    selectVersion: (state, action: PayloadAction<PromptVersion>) => {
-      state.selectedVersion = action.payload;
-    },
-
-    // Action: Delete prompt
-    deletePromptSuccess: (state, action: PayloadAction<string>) => {
-      state.prompts = state.prompts.filter((p) => p.id !== action.payload);
-      if (state.selectedPrompt?.id === action.payload) {
-        state.selectedPrompt = null;
-        state.selectedVersion = null;
-      }
-    },
-
-    // Action: Clear error
-    clearError: (state) => {
-      state.error = null;
+    selectVersion: (state, action) => {
+      state.selectedVersion = action.payload
     },
   },
-});
+  extraReducers: (builder) => {
+    // Fetch Prompts by Project
+    builder
+      .addCase(fetchPromptsByProject.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(fetchPromptsByProject.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.prompts = action.payload.prompts || []
+        state.pagination = action.payload.pagination || state.pagination
+      })
+      .addCase(fetchPromptsByProject.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
 
-export const {
-  fetchPromptsStart,
-  fetchPromptsSuccess,
-  fetchPromptsFailure,
-  createPromptSuccess,
-  addVersionSuccess,
-  selectPrompt,
-  selectVersion,
-  deletePromptSuccess,
-  clearError,
-} = promptSlice.actions;
+    // Fetch Prompt by ID
+    builder
+      .addCase(fetchPromptById.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(fetchPromptById.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.selectedPrompt = action.payload
+        if (action.payload.versions && action.payload.versions.length > 0) {
+          state.selectedVersion = action.payload.versions[0]
+        }
+      })
+      .addCase(fetchPromptById.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
 
-export default promptSlice.reducer;
+    // Create Prompt
+    builder
+      .addCase(createPrompt.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(createPrompt.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.prompts.push(action.payload)
+      })
+      .addCase(createPrompt.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+
+    // Create Prompt Version
+    builder
+      .addCase(createPromptVersion.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(createPromptVersion.fulfilled, (state, action) => {
+        state.isLoading = false
+        if (state.selectedPrompt && state.selectedPrompt.versions) {
+          state.selectedPrompt.versions.push(action.payload)
+        }
+      })
+      .addCase(createPromptVersion.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+
+    // Delete Prompt
+    builder
+      .addCase(deletePrompt.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(deletePrompt.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.prompts = state.prompts.filter((p) => p.id !== action.payload)
+      })
+      .addCase(deletePrompt.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+  },
+})
+
+export const { selectPrompt, selectVersion } = promptSlice.actions
+export default promptSlice.reducer

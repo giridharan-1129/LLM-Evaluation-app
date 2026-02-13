@@ -1,60 +1,32 @@
-/**
- * Metrics State Types
- * Manages evaluation metrics and analytics
- */
-
-export interface MetricsData {
-  accuracy: number;
-  precision: number;
-  recall: number;
-  f1Score: number;
-}
-
-export interface CostMetrics {
-  totalCost: number;
-  averageCostPerEntry: number;
-  costByModel: Record<string, number>;
-  costByPrompt: Record<string, number>;
-}
-
-export interface TokenMetrics {
-  totalTokensUsed: number;
-  averageTokensPerEntry: number;
-  tokensByModel: Record<string, number>;
-  tokensByPrompt: Record<string, number>;
-}
-
-export interface PerformanceMetrics {
-  averageLatency: number;
-  minLatency: number;
-  maxLatency: number;
-  latencyByModel: Record<string, number>;
-}
-
 export interface JobMetrics {
-  jobId: string;
-  projectId: string;
-  metrics: MetricsData;
-  cost: CostMetrics;
-  tokens: TokenMetrics;
-  performance: PerformanceMetrics;
-  createdAt: string;
-}
-
-export interface MetricsState {
-  jobMetrics: JobMetrics[];
-  selectedJobMetrics: JobMetrics | null;
-  projectMetrics: ProjectMetricsAggregate | null;
-  isLoading: boolean;
-  error: string | null;
+  id: string
+  job_id: string
+  total_entries: number
+  completed_entries: number
+  failed_entries: number
+  accuracy: number
+  precision: number
+  recall: number
+  f1_score: number
+  avg_latency_ms: number
+  total_cost: number
+  created_at: string
 }
 
 export interface ProjectMetricsAggregate {
-  projectId: string;
-  totalJobs: number;
-  averageAccuracy: number;
-  totalCost: number;
-  totalTokensUsed: number;
-  topPerformingModel: string | null;
-  topPerformingPrompt: string | null;
+  project_id: string
+  total_jobs: number
+  completed_jobs: number
+  total_entries_evaluated: number
+  avg_accuracy: number
+  total_cost: number
+  created_at: string
+}
+
+export interface MetricsState {
+  jobMetrics: JobMetrics[]
+  selectedJobMetrics: JobMetrics | null
+  projectMetrics: ProjectMetricsAggregate | null
+  isLoading: boolean
+  error: string | null
 }

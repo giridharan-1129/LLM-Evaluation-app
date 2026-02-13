@@ -1,5 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import type { JobState, EvaluationJob, EvaluationEntry, UpdateJobProgressPayload } from '../types'
+import { createSlice } from '@reduxjs/toolkit'
+import { fetchJobsByProject, fetchJobById, createJob, cancelJob } from '../thunks'
+import type { JobState } from '../types'
 
 const initialState: JobState = {
   jobs: [],
@@ -18,56 +19,69 @@ const jobSlice = createSlice({
   name: 'job',
   initialState,
   reducers: {
-    setJobs: (state, action: PayloadAction<EvaluationJob[]>) => {
-      state.jobs = action.payload
-    },
-
-    selectJob: (state, action: PayloadAction<EvaluationJob>) => {
+    selectJob: (state, action) => {
       state.selectedJob = action.payload
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchJobsByProject.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(fetchJobsByProject.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.jobs = action.payload.jobs || []
+      })
+      .addCase(fetchJobsByProject.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
 
-    addJob: (state, action: PayloadAction<EvaluationJob>) => {
-      state.jobs.push(action.payload)
-    },
+    builder
+      .addCase(fetchJobById.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(fetchJobById.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.selectedJob = action.payload
+      })
+      .addCase(fetchJobById.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
 
-    updateJobProgress: (state, action: PayloadAction<UpdateJobProgressPayload>) => {
-      const job = state.jobs.find((j) => j.id === action.payload.job_id)
-      if (job) {
-        job.progress = action.payload.progress
-        job.completed_entries = action.payload.completed_entries
-      }
-    },
+    builder
+      .addCase(createJob.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(createJob.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.jobs.push(action.payload)
+      })
+      .addCase(createJob.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
 
-    setJobEntries: (state, action: PayloadAction<EvaluationEntry[]>) => {
-      state.jobEntries = action.payload
-    },
-
-    setJobLoading: (state, action: PayloadAction<boolean>) => {
-      state.isLoading = action.payload
-    },
-
-    setJobError: (state, action: PayloadAction<string | null>) => {
-      state.error = action.payload
-    },
-
-    setPagination: (
-      state,
-      action: PayloadAction<{ page: number; limit: number; total: number }>
-    ) => {
-      state.pagination = action.payload
-    },
+    builder
+      .addCase(cancelJob.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(cancelJob.fulfilled, (state, action) => {
+        state.isLoading = false
+        if (state.selectedJob?.id === action.payload.id) {
+          state.selectedJob = action.payload
+        }
+      })
+      .addCase(cancelJob.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
   },
 })
 
-export const {
-  setJobs,
-  selectJob,
-  addJob,
-  updateJobProgress,
-  setJobEntries,
-  setJobLoading,
-  setJobError,
-  setPagination,
-} = jobSlice.actions
-
+export const { selectJob } = jobSlice.actions
 export default jobSlice.reducer

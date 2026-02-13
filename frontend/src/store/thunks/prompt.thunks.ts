@@ -1,83 +1,92 @@
-import { createAsyncThunk } from '@reduxjs/toolkit';
-import type { Prompt, PromptVersion, CreatePromptPayload, CreateVersionPayload } from '../types';
-import { promptService } from '../../api/services';
+import { createAsyncThunk } from '@reduxjs/toolkit'
+import type { PromptCreate, PromptVersionCreate } from '../types'
+import { promptService } from '../../api/services'
 
 /**
- * Fetch prompts by project ID
+ * Fetch Prompts by Project
  */
 export const fetchPromptsByProject = createAsyncThunk(
   'prompt/fetchByProject',
-  async (projectId: string, { rejectWithValue }) => {
+  async (
+    { projectId, page = 1, limit = 10 }: { projectId: string; page?: number; limit?: number },
+    { rejectWithValue },
+  ) => {
     try {
-      const response = await promptService.getPromptsByProject(projectId);
-      return response as Prompt[];
+      const response = await promptService.getPromptsByProject(projectId, page, limit)
+      return response
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch prompts';
-      return rejectWithValue(message);
+      const message = error instanceof Error ? error.message : 'Failed to fetch prompts'
+      return rejectWithValue(message)
     }
-  }
-);
+  },
+)
 
 /**
- * Get single prompt
+ * Fetch Prompt by ID
  */
-export const fetchPrompt = createAsyncThunk(
-  'prompt/fetchPrompt',
+export const fetchPromptById = createAsyncThunk(
+  'prompt/fetchById',
   async (promptId: string, { rejectWithValue }) => {
     try {
-      const response = await promptService.getPrompt(promptId);
-      return response as Prompt;
+      const response = await promptService.getPromptById(promptId)
+      return response
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch prompt';
-      return rejectWithValue(message);
+      const message = error instanceof Error ? error.message : 'Failed to fetch prompt'
+      return rejectWithValue(message)
     }
-  }
-);
+  },
+)
 
 /**
- * Create new prompt
+ * Create Prompt
  */
 export const createPrompt = createAsyncThunk(
-  'prompt/createPrompt',
-  async (payload: CreatePromptPayload, { rejectWithValue }) => {
+  'prompt/create',
+  async (
+    { projectId, payload }: { projectId: string; payload: PromptCreate },
+    { rejectWithValue },
+  ) => {
     try {
-      const response = await promptService.createPrompt(payload);
-      return response as Prompt;
+      const response = await promptService.createPrompt(projectId, payload)
+      return response
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create prompt';
-      return rejectWithValue(message);
+      const message = error instanceof Error ? error.message : 'Failed to create prompt'
+      return rejectWithValue(message)
     }
-  }
-);
+  },
+)
 
 /**
- * Create new prompt version
+ * Create Prompt Version
  */
 export const createPromptVersion = createAsyncThunk(
   'prompt/createVersion',
-  async (payload: CreateVersionPayload, { rejectWithValue }) => {
+  async (
+    { promptId, payload }: { promptId: string; payload: PromptVersionCreate },
+    { rejectWithValue },
+  ) => {
     try {
-      const response = await promptService.createVersion(payload);
-      return response as PromptVersion;
+      const response = await promptService.createPromptVersion(promptId, payload)
+      return response
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create version';
-      return rejectWithValue(message);
+      const message = error instanceof Error ? error.message : 'Failed to create version'
+      return rejectWithValue(message)
     }
-  }
-);
+  },
+)
 
 /**
- * Delete prompt
+ * Delete Prompt
  */
 export const deletePrompt = createAsyncThunk(
-  'prompt/deletePrompt',
+  'prompt/delete',
   async (promptId: string, { rejectWithValue }) => {
     try {
-      await promptService.deletePrompt(promptId);
-      return promptId;
+      await promptService.deletePrompt(promptId)
+      return promptId
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to delete prompt';
-      return rejectWithValue(message);
+      const message = error instanceof Error ? error.message : 'Failed to delete prompt'
+      return rejectWithValue(message)
     }
-  }
-);
+  },
+)

@@ -1,14 +1,18 @@
-import { apiClient } from '../client';
-import type { JobMetrics, ProjectMetricsAggregate } from '../../store/types';
+import { apiClient } from '../client'
 
 export const metricsService = {
-  async getJobMetrics(jobId: string): Promise<JobMetrics> {
-    const { data } = await apiClient.get(`/jobs/${jobId}/metrics`);
-    return data;
+  async getJobMetrics(jobId: string) {
+    const { data } = await apiClient.get(`/metrics/job/${jobId}`)
+    return data
   },
 
-  async getProjectMetrics(projectId: string): Promise<ProjectMetricsAggregate> {
-    const { data } = await apiClient.get(`/projects/${projectId}/metrics`);
-    return data;
+  async getProjectMetrics(projectId: string) {
+    const { data } = await apiClient.get(`/metrics/project/${projectId}`)
+    return data
   },
-};
+
+  async getMultipleJobMetrics(jobIds: string[]) {
+    const { data } = await apiClient.post('/metrics/jobs', { job_ids: jobIds })
+    return data
+  },
+}
