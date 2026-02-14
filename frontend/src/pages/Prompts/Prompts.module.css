@@ -1,0 +1,242 @@
+.container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.createBtn {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.createBtn:hover {
+  background-color: #0056b3;
+}
+
+.createForm {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.createForm input,
+.createForm textarea {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.createForm textarea {
+  resize: vertical;
+}
+
+.submitBtn {
+  padding: 10px 20px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.submitBtn:hover {
+  background-color: #218838;
+}
+
+.error {
+  color: #dc3545;
+  padding: 10px;
+  background-color: #f8d7da;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.content {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+}
+
+.promptsList {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 20px;
+}
+
+.promptsList h2 {
+  margin-top: 0;
+}
+
+.promptsList ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.promptsList li {
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.promptsList li:hover {
+  background-color: #f5f5f5;
+}
+
+.promptsList li.selected {
+  background-color: #e3f2fd;
+  border-color: #007bff;
+}
+
+.promptsList li h3 {
+  margin: 0 0 5px 0;
+  font-size: 16px;
+}
+
+.promptsList li p {
+  margin: 5px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.promptsList li small {
+  color: #999;
+  font-size: 12px;
+}
+
+.emptyState {
+  color: #666;
+  text-align: center;
+  padding: 20px;
+}
+
+.promptDetail {
+  flex: 2;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 20px;
+  max-height: 800px;
+  overflow-y: auto;
+}
+
+.promptDetail h2 {
+  margin-top: 0;
+}
+
+.versions {
+  margin-top: 30px;
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+}
+
+.versions h3 {
+  margin-top: 0;
+}
+
+.versionBtn {
+  padding: 8px 16px;
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.versionBtn:hover {
+  background-color: #138496;
+}
+
+.versionForm {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.versionForm textarea,
+.versionForm select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.versionList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.versionList li {
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.versionList li.selectedVersion {
+  background-color: #fff3cd;
+  border-color: #ffc107;
+}
+
+.versionList h4 {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.versionList p {
+  margin: 5px 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.versionList code {
+  display: block;
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 3px;
+  margin: 10px 0;
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.versionList small {
+  color: #999;
+  font-size: 11px;
+}

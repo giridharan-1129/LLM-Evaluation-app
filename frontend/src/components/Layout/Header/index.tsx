@@ -1,55 +1,41 @@
-import React from 'react';
-import { useAppDispatch } from '../../../store';
-import { useAuth } from '../../../store';
-import { logout } from '../../../store/slices/authSlice';
+import React from 'react'
+import { useAuth, useAppDispatch } from '../../../store'
+import { logoutUser } from '../../../store/thunks'
+import styles from './Header.module.css'
 
 /**
  * Header Component
- * Shows app title, user info, logout button
+ * Top navigation bar
  */
 const Header: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { user } = useAuth();
+  const dispatch = useAppDispatch()
+  const { user } = useAuth()
 
-  const handleLogout = () => {
-    dispatch(logout());
-  };
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
 
   return (
-    <header style={{ background: 'white', borderBottom: '1px solid #eee', padding: '1rem 2rem' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          maxWidth: '1400px',
-          margin: '0 auto',
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#333' }}>
-          LLM Evaluation Platform
-        </h1>
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <span style={{ color: '#666', fontWeight: 500 }}>{user.name}</span>
-            <button
-              onClick={handleLogout}
-              style={{
-                padding: '0.5rem 1rem',
-                background: '#f0f0f0',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        )}
+    <header className={styles.header}>
+      <div className={styles.headerContent}>
+        <h1 className={styles.title}>LLM Evaluation Platform</h1>
+        <div className={styles.userMenu}>
+          {user && (
+            <>
+              <span className={styles.userName}>{user.name}</span>
+              <button className={styles.logoutBtn} onClick={handleLogout}>
+                Logout
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </header>
-  );
-};
+  )
+}
 
-export default Header;
+export default Header
