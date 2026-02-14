@@ -1,0 +1,436 @@
+"""
+LLM Service Module
+Handles all LLM API interactions:
+- Calling OpenAI API
+- Calling Anthropic API
+- Token counting
+- Cost calculation
+- Error handling and retries
+"""
+
+import os
+import time
+import logging
+from typing import Dict, Any, Optional, Tuple
+from abc import ABC, abstractmethod
+import json
+
+logger = logging.getLogger(__name__)
+
+
+class LLMProvider(ABC):
+    """
+    Abstract base class for LLM providers
+    All LLM providers must implement these methods
+    """
+    
+    @abstractmethod
+    def call(self, system_prompt: str, user_prompt: str, **kwargs) -> Dict[str, Any]:
+        """
+        Call the LLM with given prompts
+        
+        Args:
+            system_prompt: System instruction for the LLM
+            user_prompt: The actual user message
+            **kwargs: Additional parameters (temperature, max_tokens, etc)
+            
+        Returns:
+            Dict with keys: response, tokens_used, cost
+        """
+        pass
+    
+    @abstractmethod
+    def count_tokens(self, text: str) -> int:
+        """
+        Count tokens in text without calling API
+        
+        Args:
+            text: Text to count tokens for
+            
+        Returns:
+            Number of tokens
+        """
+        pass
+
+
+class OpenAIProvider(LLMProvider):
+    """
+    OpenAI LLM Provider
+    Handles calls to OpenAI's API (GPT-4, GPT-3.5, etc)
+    """
+    
+    # Token pricing per 1000 tokens (as of Feb 2025)
+    PRICING = {
+        "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+        "gpt-4": {"input": 0.03, "output": 0.06},
+        "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+    }
+    
+    # Approximate tokens per word (for estimation)
+    TOKENS_PER_WORD = 0.75
+    
+    def __init__(self):
+        """Initialize OpenAI provider with API key"""
+        try:
+            import openai
+            self.openai = openai
+            
+            # Get API key from environment
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not set in environment")
+            
+            self.openai.api_key = api_key
+            self.client = openai.OpenAI(api_key=api_key)
+            logger.info("OpenAI provider initialized")
+            
+        except ImportError:
+            logger.error("openai package not installed. Run: pip install openai")
+            raise Exception("openai package required. Run: pip install openai")
+    
+    
+    def call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = "gpt-3.5-turbo",
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Call OpenAI API with exponential backoff retry logic
+        
+        Args:
+            system_prompt: System instruction
+            user_prompt: User message
+            model: Model name (gpt-4, gpt-3.5-turbo, etc)
+            temperature: Randomness (0.0 = deterministic, 1.0 = random)
+            max_tokens: Maximum response length
+            max_retries: Number of retry attempts on failure
+            
+        Returns:
+            Dict with:
+            - response: The LLM response text
+            - tokens_used: Total tokens consumed
+            - cost: Cost in dollars
+            - model: Model used
+            - temperature: Temperature used
+        """
+        
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
+            try:
+                logger.debug(f"Calling OpenAI {model} (attempt {retry_count + 1}/{max_retries})")
+                
+                # Call OpenAI API
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                
+                # Extract response text
+                response_text = response.choices[0].message.content
+                
+                # Get token counts
+                input_tokens = response.usage.prompt_tokens
+                output_tokens = response.usage.completion_tokens
+                total_tokens = input_tokens + output_tokens
+                
+                # Calculate cost
+                cost = self._calculate_cost(model, input_tokens, output_tokens)
+                
+                logger.info(f"OpenAI call successful. Tokens: {total_tokens}, Cost: ${cost:.6f}")
+                
+                return {
+                    "response": response_text,
+                    "tokens_used": total_tokens,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cost": cost,
+                    "model": model,
+                    "temperature": temperature,
+                }
+                
+            except Exception as e:
+                last_error = e
+                retry_count += 1
+                
+                if retry_count < max_retries:
+                    # Exponential backoff: wait 2^retry_count seconds
+                    wait_time = 2 ** retry_count
+                    logger.warning(f"OpenAI call failed: {str(e)}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"OpenAI call failed after {max_retries} retries: {str(e)}")
+        
+        raise Exception(f"Failed to call OpenAI after {max_retries} retries: {str(last_error)}")
+    
+    
+    def count_tokens(self, text: str) -> int:
+        """
+        Estimate token count without calling API
+        Uses approximate ratio: 1 token ≈ 0.75 words
+        
+        Args:
+            text: Text to count tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        word_count = len(text.split())
+        estimated_tokens = int(word_count * self.TOKENS_PER_WORD)
+        
+        logger.debug(f"Estimated tokens: {estimated_tokens} (for {word_count} words)")
+        
+        return estimated_tokens
+    
+    
+    def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
+        """
+        Calculate cost based on token usage and pricing
+        
+        Args:
+            model: Model name
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            
+        Returns:
+            Cost in dollars
+        """
+        
+        # Get pricing for model
+        if model not in self.PRICING:
+            logger.warning(f"Pricing not found for {model}, using gpt-3.5-turbo pricing")
+            pricing = self.PRICING["gpt-3.5-turbo"]
+        else:
+            pricing = self.PRICING[model]
+        
+        # Calculate cost: (tokens / 1000) * price_per_1k_tokens
+        input_cost = (input_tokens / 1000) * pricing["input"]
+        output_cost = (output_tokens / 1000) * pricing["output"]
+        total_cost = input_cost + output_cost
+        
+        logger.debug(f"Cost calculation: input=${input_cost:.6f}, output=${output_cost:.6f}, total=${total_cost:.6f}")
+        
+        return total_cost
+
+
+class AnthropicProvider(LLMProvider):
+    """
+    Anthropic LLM Provider
+    Handles calls to Anthropic's API (Claude 3, etc)
+    """
+    
+    # Token pricing per 1000 tokens (as of Feb 2025)
+    PRICING = {
+        "claude-3-opus": {"input": 0.015, "output": 0.075},
+        "claude-3-sonnet": {"input": 0.003, "output": 0.015},
+        "claude-3-haiku": {"input": 0.00025, "output": 0.00125},
+    }
+    
+    TOKENS_PER_WORD = 0.75
+    
+    def __init__(self):
+        """Initialize Anthropic provider with API key"""
+        try:
+            import anthropic
+            self.anthropic = anthropic
+            
+            # Get API key from environment
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY not set in environment")
+            
+            self.client = anthropic.Anthropic(api_key=api_key)
+            logger.info("Anthropic provider initialized")
+            
+        except ImportError:
+            logger.error("anthropic package not installed. Run: pip install anthropic")
+            raise Exception("anthropic package required. Run: pip install anthropic")
+    
+    
+    def call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = "claude-3-sonnet",
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Call Anthropic API with exponential backoff retry logic
+        
+        Args:
+            system_prompt: System instruction
+            user_prompt: User message
+            model: Model name (claude-3-opus, claude-3-sonnet, etc)
+            temperature: Randomness (0.0 = deterministic, 1.0 = random)
+            max_tokens: Maximum response length
+            max_retries: Number of retry attempts on failure
+            
+        Returns:
+            Dict with response, tokens_used, cost
+        """
+        
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
+            try:
+                logger.debug(f"Calling Anthropic {model} (attempt {retry_count + 1}/{max_retries})")
+                
+                # Call Anthropic API
+                response = self.client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=system_prompt,
+                    messages=[
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=temperature,
+                )
+                
+                # Extract response text
+                response_text = response.content[0].text
+                
+                # Get token counts
+                input_tokens = response.usage.input_tokens
+                output_tokens = response.usage.output_tokens
+                total_tokens = input_tokens + output_tokens
+                
+                # Calculate cost
+                cost = self._calculate_cost(model, input_tokens, output_tokens)
+                
+                logger.info(f"Anthropic call successful. Tokens: {total_tokens}, Cost: ${cost:.6f}")
+                
+                return {
+                    "response": response_text,
+                    "tokens_used": total_tokens,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cost": cost,
+                    "model": model,
+                    "temperature": temperature,
+                }
+                
+            except Exception as e:
+                last_error = e
+                retry_count += 1
+                
+                if retry_count < max_retries:
+                    wait_time = 2 ** retry_count
+                    logger.warning(f"Anthropic call failed: {str(e)}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Anthropic call failed after {max_retries} retries: {str(e)}")
+        
+        raise Exception(f"Failed to call Anthropic after {max_retries} retries: {str(last_error)}")
+    
+    
+    def count_tokens(self, text: str) -> int:
+        """
+        Estimate token count without calling API
+        
+        Args:
+            text: Text to count tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        word_count = len(text.split())
+        estimated_tokens = int(word_count * self.TOKENS_PER_WORD)
+        
+        logger.debug(f"Estimated tokens: {estimated_tokens} (for {word_count} words)")
+        
+        return estimated_tokens
+    
+    
+    def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
+        """Calculate cost based on token usage and pricing"""
+        
+        if model not in self.PRICING:
+            logger.warning(f"Pricing not found for {model}, using claude-3-sonnet pricing")
+            pricing = self.PRICING["claude-3-sonnet"]
+        else:
+            pricing = self.PRICING[model]
+        
+        input_cost = (input_tokens / 1000) * pricing["input"]
+        output_cost = (output_tokens / 1000) * pricing["output"]
+        total_cost = input_cost + output_cost
+        
+        logger.debug(f"Cost calculation: input=${input_cost:.6f}, output=${output_cost:.6f}, total=${total_cost:.6f}")
+        
+        return total_cost
+
+
+class LLMService:
+    """
+    Main LLM Service
+    Provides unified interface to all LLM providers
+    """
+    
+    def __init__(self, provider: str = "openai"):
+        """
+        Initialize LLM service with specified provider
+        
+        Args:
+            provider: "openai" or "anthropic"
+        """
+        self.provider = provider
+        
+        if provider == "openai":
+            self.llm = OpenAIProvider()
+        elif provider == "anthropic":
+            self.llm = AnthropicProvider()
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+        
+        logger.info(f"LLMService initialized with {provider} provider")
+    
+    
+    def evaluate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = "gpt-3.5-turbo",
+        temperature: float = 0.7,
+        max_tokens: int = 2000
+    ) -> Dict[str, Any]:
+        """
+        Evaluate a single prompt with LLM
+        
+        Args:
+            system_prompt: System instruction
+            user_prompt: User message
+            model: Model to use
+            temperature: Randomness level
+            max_tokens: Max response length
+            
+        Returns:
+            Dict with response, tokens, cost, model
+        """
+        
+        try:
+            result = self.llm.call(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"LLM evaluation failed: {str(e)}")
+            raise
+
