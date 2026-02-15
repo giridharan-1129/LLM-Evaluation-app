@@ -2,6 +2,7 @@
 LLM Service Module
 Handles all LLM API interactions:
 - Calling OpenAI API
+- Calling DeepSeek API
 - Calling Anthropic API
 - Token counting
 - Cost calculation
@@ -11,9 +12,11 @@ Handles all LLM API interactions:
 import os
 import time
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from abc import ABC, abstractmethod
 import json
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +160,7 @@ class OpenAIProvider(LLMProvider):
                     "cost": cost,
                     "model": model,
                     "temperature": temperature,
+                    "provider": "openai"
                 }
                 
             except Exception as e:
@@ -214,6 +218,160 @@ class OpenAIProvider(LLMProvider):
             pricing = self.PRICING[model]
         
         # Calculate cost: (tokens / 1000) * price_per_1k_tokens
+        input_cost = (input_tokens / 1000) * pricing["input"]
+        output_cost = (output_tokens / 1000) * pricing["output"]
+        total_cost = input_cost + output_cost
+        
+        logger.debug(f"Cost calculation: input=${input_cost:.6f}, output=${output_cost:.6f}, total=${total_cost:.6f}")
+        
+        return total_cost
+
+
+class DeepSeekProvider(LLMProvider):
+    """
+    DeepSeek LLM Provider
+    Handles calls to DeepSeek's API (DeepSeek-V2, etc)
+    """
+    
+    # Token pricing per 1000 tokens (as of Feb 2025)
+    PRICING = {
+        "deepseek-chat": {"input": 0.0014, "output": 0.0028},
+        "deepseek-coder": {"input": 0.0014, "output": 0.0028},
+    }
+    
+    TOKENS_PER_WORD = 0.75
+    BASE_URL = "https://api.deepseek.com/v1"
+    
+    def __init__(self):
+        """Initialize DeepSeek provider with API key"""
+        try:
+            import openai
+            self.openai = openai
+            
+            # Get API key from environment
+            api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not api_key:
+                raise ValueError("DEEPSEEK_API_KEY not set in environment")
+            
+            # DeepSeek uses OpenAI-compatible API
+            self.client = openai.OpenAI(
+                api_key=api_key,
+                base_url=self.BASE_URL
+            )
+            logger.info("DeepSeek provider initialized")
+            
+        except ImportError:
+            logger.error("openai package not installed. Run: pip install openai")
+            raise Exception("openai package required. Run: pip install openai")
+    
+    
+    def call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = "deepseek-chat",
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Call DeepSeek API with exponential backoff retry logic
+        
+        Args:
+            system_prompt: System instruction
+            user_prompt: User message
+            model: Model name (deepseek-chat, deepseek-coder, etc)
+            temperature: Randomness (0.0 = deterministic, 1.0 = random)
+            max_tokens: Maximum response length
+            max_retries: Number of retry attempts on failure
+            
+        Returns:
+            Dict with response, tokens_used, cost
+        """
+        
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
+            try:
+                logger.debug(f"Calling DeepSeek {model} (attempt {retry_count + 1}/{max_retries})")
+                
+                # Call DeepSeek API (OpenAI-compatible)
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                
+                # Extract response text
+                response_text = response.choices[0].message.content
+                
+                # Get token counts
+                input_tokens = response.usage.prompt_tokens
+                output_tokens = response.usage.completion_tokens
+                total_tokens = input_tokens + output_tokens
+                
+                # Calculate cost
+                cost = self._calculate_cost(model, input_tokens, output_tokens)
+                
+                logger.info(f"DeepSeek call successful. Tokens: {total_tokens}, Cost: ${cost:.6f}")
+                
+                return {
+                    "response": response_text,
+                    "tokens_used": total_tokens,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cost": cost,
+                    "model": model,
+                    "temperature": temperature,
+                    "provider": "deepseek"
+                }
+                
+            except Exception as e:
+                last_error = e
+                retry_count += 1
+                
+                if retry_count < max_retries:
+                    wait_time = 2 ** retry_count
+                    logger.warning(f"DeepSeek call failed: {str(e)}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"DeepSeek call failed after {max_retries} retries: {str(e)}")
+        
+        raise Exception(f"Failed to call DeepSeek after {max_retries} retries: {str(last_error)}")
+    
+    
+    def count_tokens(self, text: str) -> int:
+        """
+        Estimate token count without calling API
+        
+        Args:
+            text: Text to count tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        word_count = len(text.split())
+        estimated_tokens = int(word_count * self.TOKENS_PER_WORD)
+        
+        logger.debug(f"Estimated tokens: {estimated_tokens} (for {word_count} words)")
+        
+        return estimated_tokens
+    
+    
+    def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
+        """Calculate cost based on token usage and pricing"""
+        
+        if model not in self.PRICING:
+            logger.warning(f"Pricing not found for {model}, using deepseek-chat pricing")
+            pricing = self.PRICING["deepseek-chat"]
+        else:
+            pricing = self.PRICING[model]
+        
         input_cost = (input_tokens / 1000) * pricing["input"]
         output_cost = (output_tokens / 1000) * pricing["output"]
         total_cost = input_cost + output_cost
@@ -320,6 +478,7 @@ class AnthropicProvider(LLMProvider):
                     "cost": cost,
                     "model": model,
                     "temperature": temperature,
+                    "provider": "anthropic"
                 }
                 
             except Exception as e:
@@ -376,6 +535,7 @@ class LLMService:
     """
     Main LLM Service
     Provides unified interface to all LLM providers
+    Supports dual-model parallel execution
     """
     
     def __init__(self, provider: str = "openai"):
@@ -383,12 +543,14 @@ class LLMService:
         Initialize LLM service with specified provider
         
         Args:
-            provider: "openai" or "anthropic"
+            provider: "openai", "deepseek", or "anthropic"
         """
         self.provider = provider
         
         if provider == "openai":
             self.llm = OpenAIProvider()
+        elif provider == "deepseek":
+            self.llm = DeepSeekProvider()
         elif provider == "anthropic":
             self.llm = AnthropicProvider()
         else:
@@ -432,5 +594,97 @@ class LLMService:
             
         except Exception as e:
             logger.error(f"LLM evaluation failed: {str(e)}")
+            raise
+    
+    
+    def evaluate_dual_models(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model_a: str,
+        model_b: str,
+        provider_a: str = "openai",
+        provider_b: str = "deepseek",
+        temperature_a: float = 0.7,
+        temperature_b: float = 0.7,
+        max_tokens: int = 2000
+    ) -> Dict[str, Any]:
+        """
+        Evaluate same prompt with TWO models in PARALLEL
+        
+        Args:
+            system_prompt: System instruction
+            user_prompt: User message
+            model_a: First model name
+            model_b: Second model name
+            provider_a: Provider for first model
+            provider_b: Provider for second model
+            temperature_a: Temperature for first model
+            temperature_b: Temperature for second model
+            max_tokens: Max response length
+            
+        Returns:
+            Dict with:
+            - response_a: Response from model A
+            - response_b: Response from model B
+            - tokens_a: Tokens used by model A
+            - tokens_b: Tokens used by model B
+            - cost_a: Cost for model A
+            - cost_b: Cost for model B
+            - total_cost: Combined cost
+        """
+        
+        try:
+            # Initialize both providers
+            service_a = LLMService(provider=provider_a)
+            service_b = LLMService(provider=provider_b)
+            
+            logger.info(f"Starting dual-model evaluation: {model_a} ({provider_a}) vs {model_b} ({provider_b})")
+            
+            # Run both LLM calls in parallel
+            result_a = service_a.evaluate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model_a,
+                temperature=temperature_a,
+                max_tokens=max_tokens
+            )
+            
+            result_b = service_b.evaluate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model_b,
+                temperature=temperature_b,
+                max_tokens=max_tokens
+            )
+            
+            # Combine results
+            combined_result = {
+                "response_a": result_a["response"],
+                "response_b": result_b["response"],
+                "model_a": model_a,
+                "model_b": model_b,
+                "provider_a": provider_a,
+                "provider_b": provider_b,
+                "tokens_a": result_a["tokens_used"],
+                "tokens_b": result_b["tokens_used"],
+                "total_tokens": result_a["tokens_used"] + result_b["tokens_used"],
+                "input_tokens_a": result_a["input_tokens"],
+                "output_tokens_a": result_a["output_tokens"],
+                "input_tokens_b": result_b["input_tokens"],
+                "output_tokens_b": result_b["output_tokens"],
+                "cost_a": result_a["cost"],
+                "cost_b": result_b["cost"],
+                "total_cost": result_a["cost"] + result_b["cost"],
+                "temperature_a": temperature_a,
+                "temperature_b": temperature_b,
+            }
+            
+            logger.info(f"Dual-model evaluation complete. Total cost: ${combined_result['total_cost']:.6f}")
+            
+            return combined_result
+            
+        except Exception as e:
+            logger.error(f"Dual-model evaluation failed: {str(e)}")
             raise
 

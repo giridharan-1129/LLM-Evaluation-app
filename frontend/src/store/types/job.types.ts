@@ -26,7 +26,7 @@ export interface CreateJobPayload {
   project_id: string
   name: string
   description?: string
-  entries: Array<{
+  entries?: Array<{
     input: string
     expected_output: string
   }>

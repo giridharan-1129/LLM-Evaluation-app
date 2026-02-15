@@ -1,108 +1,183 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useProject, useAppDispatch } from '../../store'
-import { createProject, fetchProjects } from '../../store/thunks'
 import styles from './Projects.module.css'
 
-/**
- * Projects Page Component
- * Manage projects and view project details
- */
+interface Project {
+  id: string
+  name: string
+  description: string
+  created_at: string
+  total_evaluations: number
+}
+
 const ProjectsPage: React.FC = () => {
-  const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { projects, isLoading, error } = useProject()
-
+  const [projects, setProjects] = useState<Project[]>([
+    {
+      id: '1',
+      name: 'Machine Learning Evaluation',
+      description: 'Comparing GPT-4 vs DeepSeek for ML questions',
+      created_at: '2024-02-15',
+      total_evaluations: 0
+    }
+  ])
+  
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-  })
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectDesc, setNewProjectDesc] = useState('')
 
-  // Fetch projects on mount
+  // Load projects from localStorage
   useEffect(() => {
-    dispatch(fetchProjects(undefined))
-  }, [dispatch])
+    const savedProjects = localStorage.getItem('projects')
+    if (savedProjects) {
+      try {
+        setProjects(JSON.parse(savedProjects))
+      } catch (e) {
+        console.log('Could not load saved projects')
+      }
+    }
+  }, [])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  // Save projects to localStorage
+  const saveProjects = (updatedProjects: Project[]) => {
+    setProjects(updatedProjects)
+    localStorage.setItem('projects', JSON.stringify(updatedProjects))
   }
 
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.name.trim()) {
-      alert('Project name is required')
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) {
+      alert('Please enter project name')
       return
     }
 
-    try {
-      await dispatch(createProject(formData)).unwrap()
-      setFormData({ name: '', description: '' })
-      setShowCreateForm(false)
-    } catch (err) {
-      alert('Failed to create project: ' + (typeof err === 'string' ? err : 'Unknown error'))
+    const newProject: Project = {
+      id: Date.now().toString(),
+      name: newProjectName,
+      description: newProjectDesc,
+      created_at: new Date().toLocaleDateString(),
+      total_evaluations: 0
     }
+
+    const updated = [...projects, newProject]
+    saveProjects(updated)
+    setNewProjectName('')
+    setNewProjectDesc('')
+    setShowCreateForm(false)
+    alert('✅ Project created successfully!')
+  }
+
+  const handleDeleteProject = (projectId: string) => {
+    const projectName = projects.find(p => p.id === projectId)?.name
+    if (window.confirm(`Delete project "${projectName}"? This cannot be undone.`)) {
+      const updated = projects.filter(p => p.id !== projectId)
+      saveProjects(updated)
+      // If deleted project was selected, clear it
+      if (localStorage.getItem('selectedProjectId') === projectId) {
+        localStorage.removeItem('selectedProjectId')
+      }
+      alert('✅ Project deleted successfully')
+    }
+  }
+
+  const handleSelectProject = (projectId: string) => {
+    // Store selected project in localStorage
+    localStorage.setItem('selectedProjectId', projectId)
+    console.log('Selected project:', projectId)
+    // Navigate to playground
+    navigate('/playground')
   }
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>Projects</h1>
-        <button
+        <h1>📁 Projects</h1>
+        <p>Manage your LLM evaluation projects</p>
+      </div>
+
+      <div className={styles.actionBar}>
+        <button 
           className={styles.createBtn}
           onClick={() => setShowCreateForm(!showCreateForm)}
         >
-          {showCreateForm ? 'Cancel' : '+ New Project'}
+          {showCreateForm ? '✕ Cancel' : '➕ Create New Project'}
         </button>
       </div>
 
       {showCreateForm && (
-        <form className={styles.createForm} onSubmit={handleCreateProject}>
-          <input
-            type="text"
-            name="name"
-            placeholder="Project name"
-            value={formData.name}
-            onChange={handleInputChange}
-            required
-          />
-          <textarea
-            name="description"
-            placeholder="Project description"
-            value={formData.description}
-            onChange={handleInputChange}
-            rows={3}
-          />
-          <button type="submit" className={styles.submitBtn}>
-            Create Project
-          </button>
-        </form>
-      )}
-
-      {isLoading && <p>Loading projects...</p>}
-      {error && <p className={styles.error}>{error}</p>}
-
-      {projects.length === 0 ? (
-        <p className={styles.emptyState}>
-          No projects yet. Create one to get started!
-        </p>
-      ) : (
-        <div className={styles.projectsList}>
-          {projects.map((project) => (
-            <div
-              key={project.id}
-              className={styles.projectCard}
-              onClick={() => navigate(`/projects/${project.id}`)}
+        <div className={styles.createForm}>
+          <h3>Create New Project</h3>
+          <div className={styles.formGroup}>
+            <label>Project Name *</label>
+            <input
+              type="text"
+              placeholder="e.g., ML Model Comparison"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <label>Description</label>
+            <textarea
+              placeholder="Describe your project..."
+              value={newProjectDesc}
+              onChange={(e) => setNewProjectDesc(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className={styles.formButtons}>
+            <button className={styles.submitBtn} onClick={handleCreateProject}>
+              Create Project
+            </button>
+            <button 
+              className={styles.cancelBtn}
+              onClick={() => setShowCreateForm(false)}
             >
-              <h2>{project.name}</h2>
-              <p>{project.description}</p>
-              <small>Created {new Date(project.created_at).toLocaleDateString()}</small>
-            </div>
-          ))}
+              Cancel
+            </button>
+          </div>
         </div>
       )}
+
+      <div className={styles.projectsGrid}>
+        {projects.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>No projects yet. Create one to get started!</p>
+          </div>
+        ) : (
+          projects.map((project) => (
+            <div 
+              key={project.id}
+              className={styles.projectCard}
+            >
+              <div className={styles.cardHeader}>
+                <h3>{project.name}</h3>
+                <span className={styles.date}>{project.created_at}</span>
+              </div>
+              <p className={styles.description}>{project.description}</p>
+              <div className={styles.cardFooter}>
+                <span className={styles.stat}>
+                  📊 {project.total_evaluations} evaluations
+                </span>
+                <div className={styles.cardButtons}>
+                  <button 
+                    className={styles.selectBtn}
+                    onClick={() => handleSelectProject(project.id)}
+                  >
+                    Open →
+                  </button>
+                  <button 
+                    className={styles.deleteBtn}
+                    onClick={() => handleDeleteProject(project.id)}
+                    title="Delete project"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }

@@ -1,12 +1,22 @@
+"""
+API Endpoints Package
+Combines all routers into a single main router
+"""
+
 from fastapi import APIRouter
 
-from app.api.endpoints.auth import router as auth_router
-from app.api.endpoints.projects import router as projects_router
-from app.api.endpoints.prompts import router as prompts_router
-from app.api.endpoints.evaluations import router as evaluations_router
+# Import individual routers
+from app.api.endpoints import auth, projects, prompts, datasets, evaluations, metrics_viz
 
+# Create main router
 router = APIRouter()
-router.include_router(auth_router)
-router.include_router(projects_router)
-router.include_router(prompts_router)
-router.include_router(evaluations_router)
+
+# Include all sub-routers
+router.include_router(auth.router)
+router.include_router(projects.router)
+router.include_router(prompts.router)
+router.include_router(datasets.router)
+router.include_router(evaluations.router)
+router.include_router(metrics_viz.router)
+
+__all__ = ["router"]
