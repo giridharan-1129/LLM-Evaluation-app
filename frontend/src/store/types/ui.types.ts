@@ -1,37 +1,30 @@
 export interface Notification {
   id: string
+  type: 'success' | 'error' | 'warning' | 'info'
   message: string
-  type: 'success' | 'error' | 'info' | 'warning'
   duration?: number
 }
 
 export interface ShowNotificationPayload {
+  type: 'success' | 'error' | 'warning' | 'info'
   message: string
-  type: 'success' | 'error' | 'info' | 'warning'
   duration?: number
 }
 
-export interface Modal {
-  name: string
-  isOpen: boolean
-  title?: string
-  data?: Record<string, any>
-}
-
 export interface OpenModalPayload {
-  name: string
-  title?: string
-  data?: Record<string, any>
+  type: string
+  data?: any
 }
 
 export interface UIState {
   notifications: Notification[]
-  modals: {
-    [key: string]: Modal
-  }
-  sidebarOpen: boolean
-  theme: 'light' | 'dark'
-  loading: {
-    [key: string]: boolean
-  }
+  modals: Array<{
+    type: string
+    isOpen: boolean
+    data?: any
+  }>
+  loading: boolean | { global?: boolean }
+  error: string | null
+  sidebarOpen?: boolean
+  theme?: 'light' | 'dark'
 }

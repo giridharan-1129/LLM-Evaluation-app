@@ -45,7 +45,7 @@ const RegisterPage: React.FC = () => {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          confirm_password: formData.confirmPassword,
+          
         })
       ).unwrap()
 

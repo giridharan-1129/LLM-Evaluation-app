@@ -46,7 +46,7 @@ const PromptsPage: React.FC = () => {
   const handleCreatePrompt = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name.trim() || !formData.content.trim()) {
+    if (!formData.name.trim() || !formData.name.trim()) {
       alert('Prompt name and content are required')
       return
     }
@@ -59,7 +59,7 @@ const PromptsPage: React.FC = () => {
             payload: {
               name: formData.name,
               description: formData.description,
-              content: formData.content,
+              content: formData.name,
             },
           }),
         ).unwrap()
@@ -131,7 +131,7 @@ const PromptsPage: React.FC = () => {
           <textarea
             name="content"
             placeholder="Prompt content (what you send to the LLM)"
-            value={formData.content}
+            value={formData.name}
             onChange={handleInputChange}
             rows={5}
             required

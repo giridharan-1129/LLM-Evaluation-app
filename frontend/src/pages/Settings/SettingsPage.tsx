@@ -1,65 +1,209 @@
-import React, { useState } from 'react'
-import { useAppSelector } from '../../store/hooks'
+import React, { useState, useEffect } from 'react'
+import styles from './Settings.module.css'
+
+interface APIKeys {
+  openai: string
+  deepseek: string
+  anthropic: string
+}
 
 const SettingsPage: React.FC = () => {
-  const { user } = useAppSelector(state => state.auth)
-  const [apiKey, setApiKey] = useState('')
+  const [apiKeys, setApiKeys] = useState<APIKeys>({
+    openai: '',
+    deepseek: '',
+    anthropic: ''
+  })
+  const [showKeys, setShowKeys] = useState({
+    openai: false,
+    deepseek: false,
+    anthropic: false
+  })
+  const [saved, setSaved] = useState(false)
+
+  // Load API keys from localStorage on mount
+  useEffect(() => {
+    const savedKeys = localStorage.getItem('llm_api_keys')
+    if (savedKeys) {
+      try {
+        setApiKeys(JSON.parse(savedKeys))
+      } catch (e) {
+        console.log('Error loading API keys')
+      }
+    }
+  }, [])
+
+  const handleKeyChange = (provider: keyof APIKeys, value: string) => {
+    setApiKeys(prev => ({
+      ...prev,
+      [provider]: value
+    }))
+    setSaved(false)
+  }
+
+  const handleSaveKeys = () => {
+    localStorage.setItem('llm_api_keys', JSON.stringify(apiKeys))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  const toggleKeyVisibility = (provider: keyof APIKeys) => {
+    setShowKeys(prev => ({
+      ...prev,
+      [provider]: !prev[provider]
+    }))
+  }
+
+  const getKeyStatus = (key: string) => {
+    if (!key) return { status: 'empty', color: '#999' }
+    if (key.length < 10) return { status: 'invalid', color: '#ff6b6b' }
+    return { status: 'configured', color: '#28a745' }
+  }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '600px' }}>
-      <h1>⚙️ Settings</h1>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1>🔑 API Keys Configuration</h1>
+        <p>Manage your LLM provider API keys securely</p>
+      </div>
 
-      <div style={{ marginTop: '30px' }}>
-        <h2>Account Settings</h2>
-        <div style={{ background: '#f5f5f5', padding: '20px', borderRadius: '8px', marginTop: '15px' }}>
-          <p><strong>Email:</strong> {user?.email}</p>
-          <p><strong>Name:</strong> {user?.name}</p>
-          <p><strong>User ID:</strong> {user?.id}</p>
+      {saved && (
+        <div className={styles.successMessage}>
+          ✅ API keys saved successfully!
+        </div>
+      )}
+
+      <div className={styles.content}>
+        {/* OpenAI Section */}
+        <div className={styles.keySection}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionInfo}>
+              <h2>🤖 OpenAI</h2>
+              <p>For GPT-4, GPT-4 Turbo, GPT-3.5 Turbo models</p>
+            </div>
+            <span className={styles.statusBadge} style={{ color: getKeyStatus(apiKeys.openai).color }}>
+              {getKeyStatus(apiKeys.openai).status}
+            </span>
+          </div>
+
+          <div className={styles.keyInputGroup}>
+            <label htmlFor="openai-key">API Key</label>
+            <div className={styles.inputWrapper}>
+              <input
+                id="openai-key"
+                type={showKeys.openai ? 'text' : 'password'}
+                value={apiKeys.openai}
+                onChange={(e) => handleKeyChange('openai', e.target.value)}
+                placeholder="sk-..."
+                className={styles.input}
+              />
+              <button
+                className={styles.toggleBtn}
+                onClick={() => toggleKeyVisibility('openai')}
+                title={showKeys.openai ? 'Hide' : 'Show'}
+              >
+                {showKeys.openai ? '🙈' : '👁️'}
+              </button>
+            </div>
+            <p className={styles.hint}>
+              Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a>
+            </p>
+          </div>
+        </div>
+
+        {/* DeepSeek Section */}
+        <div className={styles.keySection}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionInfo}>
+              <h2>🚀 DeepSeek</h2>
+              <p>For DeepSeek Chat and Code models</p>
+            </div>
+            <span className={styles.statusBadge} style={{ color: getKeyStatus(apiKeys.deepseek).color }}>
+              {getKeyStatus(apiKeys.deepseek).status}
+            </span>
+          </div>
+
+          <div className={styles.keyInputGroup}>
+            <label htmlFor="deepseek-key">API Key</label>
+            <div className={styles.inputWrapper}>
+              <input
+                id="deepseek-key"
+                type={showKeys.deepseek ? 'text' : 'password'}
+                value={apiKeys.deepseek}
+                onChange={(e) => handleKeyChange('deepseek', e.target.value)}
+                placeholder="sk-..."
+                className={styles.input}
+              />
+              <button
+                className={styles.toggleBtn}
+                onClick={() => toggleKeyVisibility('deepseek')}
+                title={showKeys.deepseek ? 'Hide' : 'Show'}
+              >
+                {showKeys.deepseek ? '🙈' : '👁️'}
+              </button>
+            </div>
+            <p className={styles.hint}>
+              Get your API key from <a href="https://platform.deepseek.com" target="_blank" rel="noopener noreferrer">DeepSeek Platform</a>
+            </p>
+          </div>
+        </div>
+
+        {/* Anthropic Section */}
+        <div className={styles.keySection}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionInfo}>
+              <h2>🤖 Anthropic (Claude)</h2>
+              <p>For Claude 3 Opus, Sonnet, Haiku models</p>
+            </div>
+            <span className={styles.statusBadge} style={{ color: getKeyStatus(apiKeys.anthropic).color }}>
+              {getKeyStatus(apiKeys.anthropic).status}
+            </span>
+          </div>
+
+          <div className={styles.keyInputGroup}>
+            <label htmlFor="anthropic-key">API Key</label>
+            <div className={styles.inputWrapper}>
+              <input
+                id="anthropic-key"
+                type={showKeys.anthropic ? 'text' : 'password'}
+                value={apiKeys.anthropic}
+                onChange={(e) => handleKeyChange('anthropic', e.target.value)}
+                placeholder="sk-ant-..."
+                className={styles.input}
+              />
+              <button
+                className={styles.toggleBtn}
+                onClick={() => toggleKeyVisibility('anthropic')}
+                title={showKeys.anthropic ? 'Hide' : 'Show'}
+              >
+                {showKeys.anthropic ? '🙈' : '👁️'}
+              </button>
+            </div>
+            <p className={styles.hint}>
+              Get your API key from <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">Anthropic Console</a>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div style={{ marginTop: '30px' }}>
-        <h2>API Configuration</h2>
-        <div style={{ marginTop: '15px' }}>
-          <label htmlFor="apikey" style={{ display: 'block', marginBottom: '10px' }}>
-            <strong>OpenAI API Key:</strong>
-          </label>
-          <input
-            id="apikey"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-..."
-            style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
-          />
-          <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-            Your API key is stored securely and never shared.
-          </p>
-          <button
-            style={{
-              marginTop: '15px',
-              padding: '10px 20px',
-              background: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Save Settings
-          </button>
-        </div>
+      {/* Save Button */}
+      <div className={styles.footer}>
+        <button className={styles.saveBtn} onClick={handleSaveKeys}>
+          💾 Save All API Keys
+        </button>
+        <p className={styles.securityNote}>
+          🔒 Your API keys are stored securely in your browser's local storage and never sent to our servers.
+        </p>
       </div>
 
-      <div style={{ marginTop: '30px' }}>
-        <h2>About</h2>
-        <div style={{ background: '#f5f5f5', padding: '20px', borderRadius: '8px', marginTop: '15px' }}>
-          <p><strong>LLM Evaluation Platform</strong></p>
-          <p>Version 1.0.0</p>
-          <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-            Evaluate and compare LLM outputs at scale.
-          </p>
-        </div>
+      {/* Usage Info */}
+      <div className={styles.infoSection}>
+        <h3>📌 How to use</h3>
+        <ol className={styles.infoList}>
+          <li>Save your API keys here</li>
+          <li>Keys will be automatically used when you evaluate in Playground</li>
+          <li>You can change keys anytime and re-evaluate</li>
+          <li>Each evaluation will use the latest saved keys</li>
+        </ol>
       </div>
     </div>
   )

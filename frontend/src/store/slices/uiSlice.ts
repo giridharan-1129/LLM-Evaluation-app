@@ -1,12 +1,11 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import type { UIState, ShowNotificationPayload, OpenModalPayload, Notification } from '../types'
+import { UIState, ShowNotificationPayload, OpenModalPayload, Notification } from '../types'
 
 const initialState: UIState = {
   notifications: [],
-  modals: {},
-  sidebarOpen: true,
-  theme: 'light',
-  loading: {},
+  modals: [],
+  loading: false,
+  error: null,
 }
 
 const uiSlice = createSlice({
@@ -16,49 +15,41 @@ const uiSlice = createSlice({
     showNotification: (state, action: PayloadAction<ShowNotificationPayload>) => {
       const notification: Notification = {
         id: Date.now().toString(),
-        message: action.payload.message,
         type: action.payload.type,
-        duration: action.payload.duration || 5000,
+        message: action.payload.message,
+        duration: action.payload.duration,
       }
       state.notifications.push(notification)
     },
-
     dismissNotification: (state, action: PayloadAction<string>) => {
       state.notifications = state.notifications.filter(
-        (n) => n.id !== action.payload
+        (n: Notification) => n.id !== action.payload
       )
     },
-
     openModal: (state, action: PayloadAction<OpenModalPayload>) => {
-      state.modals[action.payload.name] = {
-        name: action.payload.name,
-        isOpen: true,
-        title: action.payload.title,
-        data: action.payload.data,
+      const existingModal = state.modals.find((m) => m.type === action.payload.type)
+      if (existingModal) {
+        existingModal.isOpen = true
+        existingModal.data = action.payload.data
+      } else {
+        state.modals.push({
+          type: action.payload.type,
+          isOpen: true,
+          data: action.payload.data,
+        })
       }
     },
-
     closeModal: (state, action: PayloadAction<string>) => {
-      const modal = state.modals[action.payload]
+      const modal = state.modals.find((m) => m.type === action.payload)
       if (modal) {
         modal.isOpen = false
       }
     },
-
-    toggleSidebar: (state) => {
-      state.sidebarOpen = !state.sidebarOpen
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload
     },
-
-    setSidebarOpen: (state, action: PayloadAction<boolean>) => {
-      state.sidebarOpen = action.payload
-    },
-
-    setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
-      state.theme = action.payload
-    },
-
-    setLoading: (state, action: PayloadAction<{ key: string; value: boolean }>) => {
-      state.loading[action.payload.key] = action.payload.value
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload
     },
   },
 })
@@ -68,10 +59,7 @@ export const {
   dismissNotification,
   openModal,
   closeModal,
-  toggleSidebar,
-  setSidebarOpen,
-  setTheme,
   setLoading,
+  setError,
 } = uiSlice.actions
-
 export default uiSlice.reducer

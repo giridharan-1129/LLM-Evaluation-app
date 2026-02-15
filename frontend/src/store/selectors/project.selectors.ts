@@ -1,35 +1,16 @@
-import { createSelector } from '@reduxjs/toolkit'
 import { RootState } from '../store'
 
-const selectProjectState = (state: RootState) => state.project
+export const selectProjects = (state: RootState) => state.project.projects
 
-export const selectAllProjects = createSelector(
-  [selectProjectState],
-  (project) => project.projects,
-)
+export const selectCurrentProject = (state: RootState) => state.project.currentProject
 
-export const selectSelectedProject = createSelector(
-  [selectProjectState],
-  (project) => project.selectedProject,
-)
+export const selectSelectedProject = (state: RootState) => state.project.selectedProject
 
-export const selectProjectIsLoading = createSelector(
-  [selectProjectState],
-  (project) => project.isLoading,
-)
+export const selectProjectIsLoading = (state: RootState) => state.project.loading || state.project.isLoading
 
-export const selectProjectError = createSelector([selectProjectState], (project) => project.error)
+export const selectProjectError = (state: RootState) => state.project.error
 
-export const selectProjectPagination = createSelector(
-  [selectProjectState],
-  (project) => project.pagination,
-)
+export const selectProjectPagination = (state: RootState) => state.project.pagination
 
-export const selectProjectById = (projectId: string) =>
-  createSelector([selectAllProjects], (projects) =>
-    projects.find((p) => p.id === projectId),
-  )
-
-export const selectActiveProjects = createSelector([selectAllProjects], (projects) =>
-  projects.filter((p) => p.is_active),
-)
+export const selectActiveProjects = (state: RootState) =>
+  state.project.projects.filter((p) => p.is_active !== false)

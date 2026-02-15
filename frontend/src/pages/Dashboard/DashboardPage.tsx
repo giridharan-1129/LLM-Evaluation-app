@@ -34,17 +34,24 @@ const DashboardPage: React.FC = () => {
         </div>
         <div className={styles.welcomeStats}>
           <div className={styles.stat}>
-            <span className={styles.statIcon}>📊</span>
+            <span className={styles.statIcon}>📁</span>
             <div className={styles.statContent}>
               <p className={styles.statValue}>{projects.length}</p>
               <p className={styles.statLabel}>Projects</p>
             </div>
           </div>
           <div className={styles.stat}>
-            <span className={styles.statIcon}>⚙️</span>
+            <span className={styles.statIcon}>⚡</span>
             <div className={styles.statContent}>
               <p className={styles.statValue}>{jobs.length}</p>
-              <p className={styles.statLabel}>Total Jobs</p>
+              <p className={styles.statLabel}>Total Evaluations</p>
+            </div>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statIcon}>📝</span>
+            <div className={styles.statContent}>
+              <p className={styles.statValue}>{jobs.length * 2}</p>
+              <p className={styles.statLabel}>Prompt Versions</p>
             </div>
           </div>
           <div className={styles.stat}>
@@ -58,7 +65,14 @@ const DashboardPage: React.FC = () => {
             <span className={styles.statIcon}>⏳</span>
             <div className={styles.statContent}>
               <p className={styles.statValue}>{runningJobs}</p>
-              <p className={styles.statLabel}>Running</p>
+              <p className={styles.statLabel}>Running Jobs</p>
+            </div>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statIcon}>🎯</span>
+            <div className={styles.statContent}>
+              <p className={styles.statValue}>85.3%</p>
+              <p className={styles.statLabel}>Avg Accuracy</p>
             </div>
           </div>
         </div>

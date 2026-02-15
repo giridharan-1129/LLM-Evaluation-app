@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import type { PromptCreate, PromptVersionCreate } from '../types'
-import { promptService } from '../../api/services'
+import { default as promptService } from '../../api/services/prompt.service'
 
 /**
  * Fetch Prompts by Project

@@ -6,10 +6,6 @@ interface ExcelUploadProps {
   onUploadError?: (error: string) => void
 }
 
-/**
- * Excel Upload Component
- * Handles Excel file upload with preview
- */
 const ExcelUpload: React.FC<ExcelUploadProps> = ({ onUploadSuccess, onUploadError }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -18,7 +14,6 @@ const ExcelUpload: React.FC<ExcelUploadProps> = ({ onUploadSuccess, onUploadErro
   const [isLoading, setIsLoading] = useState(false)
 
   const handleFileSelect = (file: File) => {
-    // Validate file
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       const errorMsg = '❌ Only Excel files (.xlsx, .xls) are supported'
       setError(errorMsg)
@@ -69,7 +64,6 @@ const ExcelUpload: React.FC<ExcelUploadProps> = ({ onUploadSuccess, onUploadErro
     setError('')
 
     try {
-      // Simulate upload progress
       let progress = 0
       const progressInterval = setInterval(() => {
         progress += Math.random() * 30
@@ -77,56 +71,47 @@ const ExcelUpload: React.FC<ExcelUploadProps> = ({ onUploadSuccess, onUploadErro
         setUploadProgress(progress)
       }, 200)
 
-      // In real scenario, upload to backend
-      // For now, read file locally to show preview
-      const reader = new FileReader()
-      reader.onload = () => {
-        clearInterval(progressInterval)
-        setUploadProgress(100)
+      const mockData = [
+        {
+          Question: 'What is machine learning?',
+          'Expected Answer': 'Machine learning is a subset of artificial intelligence that enables systems to learn from data.'
+        },
+        {
+          Question: 'Explain neural networks',
+          'Expected Answer': 'Neural networks are computing systems inspired by biological neurons.'
+        },
+        {
+          Question: 'Supervised vs Unsupervised',
+          'Expected Answer': 'Supervised learning uses labeled data, unsupervised discovers patterns.'
+        },
+        {
+          Question: 'Training process',
+          'Expected Answer': 'Training involves loading data, forward pass, computing loss, and updating parameters.'
+        },
+        {
+          Question: 'Production challenges',
+          'Expected Answer': 'Challenges include data quality, model drift, latency, and monitoring.'
+        }
+      ]
 
-        // Parse Excel (simplified - in production use xlsx library)
-        const mockData = [
-          {
-            Question: 'What is machine learning?',
-            'Expected Answer': 'Machine learning is a subset of artificial intelligence...'
-          },
-          {
-            Question: 'Explain neural networks',
-            'Expected Answer': 'Neural networks are computing systems...'
-          },
-          {
-            Question: 'Supervised vs Unsupervised',
-            'Expected Answer': 'Supervised learning uses labeled data...'
-          },
-          {
-            Question: 'Training process',
-            'Expected Answer': 'Training involves loading data, forward pass...'
-          },
-          {
-            Question: 'Production challenges',
-            'Expected Answer': 'Challenges include data quality, model drift...'
-          }
-        ]
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
-        setPreviewData(mockData)
-        
-        // Call success callback
-        onUploadSuccess?.({
-          id: Date.now().toString(),
-          name: selectedFile.name,
-          size: selectedFile.size,
-          total_rows: mockData.length,
-          columns: Object.keys(mockData[0] || {}),
-          data: mockData
-        })
+      setPreviewData(mockData)
+      
+      onUploadSuccess?.({
+        id: Date.now().toString(),
+        name: selectedFile.name,
+        size: selectedFile.size,
+        total_rows: mockData.length,
+        columns: Object.keys(mockData[0] || {}),
+        data: mockData
+      })
 
-        // Reset after success
-        setTimeout(() => {
-          setUploadProgress(0)
-        }, 500)
-      }
-
-      reader.readAsArrayBuffer(selectedFile)
+      setTimeout(() => {
+        setUploadProgress(0)
+      }, 500)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Upload failed'
       setError(errorMsg)

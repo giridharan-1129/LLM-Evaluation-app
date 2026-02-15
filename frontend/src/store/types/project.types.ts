@@ -1,28 +1,18 @@
 export interface Project {
   id: string
-  user_id: string
   name: string
-  description?: string
-  is_active: boolean
+  description: string
+  user_id: string
   created_at: string
   updated_at: string
-}
-
-export interface CreateProjectPayload {
-  name: string
-  description?: string
-}
-
-export interface UpdateProjectPayload {
-  id: string
-  name?: string
-  description?: string
   is_active?: boolean
 }
 
 export interface ProjectState {
   projects: Project[]
+  currentProject: Project | null
   selectedProject: Project | null
+  loading: boolean
   isLoading: boolean
   error: string | null
   pagination: {
@@ -30,4 +20,19 @@ export interface ProjectState {
     limit: number
     total: number
   }
+}
+
+export interface CreateProjectRequest {
+  name: string
+  description: string
+}
+
+export interface UpdateProjectRequest {
+  name?: string
+  description?: string
+}
+
+export interface CreateProjectPayload {
+  name: string
+  description: string
 }

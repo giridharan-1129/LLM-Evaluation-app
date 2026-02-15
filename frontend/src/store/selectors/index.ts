@@ -1,6 +1,6 @@
-export * from './auth.selectors';
-export * from './project.selectors';
-export * from './prompt.selectors';
-export * from './job.selectors';
-export * from './metrics.selectors';
-export * from './ui.selectors';
+export * from './auth.selectors'
+export * from './project.selectors'
+export * from './prompt.selectors'
+export * from './job.selectors'
+export * from './metrics.selectors'
+export * as uiSelectors from './ui.selectors'

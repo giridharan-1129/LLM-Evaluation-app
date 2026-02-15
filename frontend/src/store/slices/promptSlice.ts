@@ -1,18 +1,12 @@
-import { createSlice } from '@reduxjs/toolkit'
-import {
-  fetchPromptsByProject,
-  fetchPromptById,
-  createPrompt,
-  createPromptVersion,
-  deletePrompt,
-} from '../thunks'
-import type { PromptState } from '../types'
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { PromptState, Prompt, PromptVersion } from '../types'
 
 const initialState: PromptState = {
   prompts: [],
+  currentPrompt: null,
   selectedPrompt: null,
   selectedVersion: null,
-  isLoading: false,
+  loading: false,
   error: null,
   pagination: {
     page: 1,
@@ -25,96 +19,34 @@ const promptSlice = createSlice({
   name: 'prompt',
   initialState,
   reducers: {
-    selectPrompt: (state, action) => {
+    setSelectedPrompt: (state, action: PayloadAction<Prompt | null>) => {
       state.selectedPrompt = action.payload
     },
-    selectVersion: (state, action) => {
+    setSelectedVersion: (state, action: PayloadAction<PromptVersion | null>) => {
       state.selectedVersion = action.payload
     },
-  },
-  extraReducers: (builder) => {
-    // Fetch Prompts by Project
-    builder
-      .addCase(fetchPromptsByProject.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(fetchPromptsByProject.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.prompts = action.payload.prompts || []
-        state.pagination = action.payload.pagination || state.pagination
-      })
-      .addCase(fetchPromptsByProject.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
-
-    // Fetch Prompt by ID
-    builder
-      .addCase(fetchPromptById.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(fetchPromptById.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.selectedPrompt = action.payload
-        if (action.payload.versions && action.payload.versions.length > 0) {
-          state.selectedVersion = action.payload.versions[0]
-        }
-      })
-      .addCase(fetchPromptById.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
-
-    // Create Prompt
-    builder
-      .addCase(createPrompt.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(createPrompt.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.prompts.push(action.payload)
-      })
-      .addCase(createPrompt.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
-
-    // Create Prompt Version
-    builder
-      .addCase(createPromptVersion.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(createPromptVersion.fulfilled, (state, action) => {
-        state.isLoading = false
-        if (state.selectedPrompt && state.selectedPrompt.versions) {
-          state.selectedPrompt.versions.push(action.payload)
-        }
-      })
-      .addCase(createPromptVersion.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
-
-    // Delete Prompt
-    builder
-      .addCase(deletePrompt.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(deletePrompt.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.prompts = state.prompts.filter((p) => p.id !== action.payload)
-      })
-      .addCase(deletePrompt.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
+    clearError: (state) => {
+      state.error = null
+    },
+    setPrompts: (state, action: PayloadAction<Prompt[]>) => {
+      state.prompts = action.payload
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload
+      state.isLoading = action.payload
+    },
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload
+    },
   },
 })
 
-export const { selectPrompt, selectVersion } = promptSlice.actions
+export const { 
+  setSelectedPrompt, 
+  setSelectedVersion, 
+  clearError, 
+  setPrompts,
+  setLoading,
+  setError 
+} = promptSlice.actions
 export default promptSlice.reducer

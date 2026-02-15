@@ -64,10 +64,11 @@
   margin-bottom: 8px;
   font-weight: 600;
   color: #333;
+  font-size: 14px;
 }
 
-.formGroup input,
-.formGroup textarea {
+.input,
+.textarea {
   width: 100%;
   padding: 10px;
   border: 1px solid #ddd;
@@ -76,8 +77,13 @@
   font-size: 14px;
 }
 
-.formGroup input:focus,
-.formGroup textarea:focus {
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.input:focus,
+.textarea:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
@@ -98,6 +104,7 @@
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.2s;
 }
 
 .submitBtn:hover {
@@ -134,6 +141,7 @@
 
 .emptyState p {
   font-size: 16px;
+  margin: 0;
 }
 
 .projectCard {
@@ -143,6 +151,8 @@
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
 }
 
 .projectCard:hover {
@@ -176,6 +186,7 @@
   color: #666;
   font-size: 13px;
   line-height: 1.5;
+  flex: 1;
 }
 
 .cardFooter {
@@ -195,7 +206,7 @@
   gap: 10px;
 }
 
-.selectBtn {
+.openBtn {
   flex: 1;
   padding: 10px 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -208,7 +219,7 @@
   transition: transform 0.2s;
 }
 
-.selectBtn:hover {
+.openBtn:hover {
   transform: scale(1.02);
 }
 

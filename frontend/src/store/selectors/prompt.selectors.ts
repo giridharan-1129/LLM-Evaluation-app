@@ -1,41 +1,19 @@
-import { createSelector } from '@reduxjs/toolkit'
 import { RootState } from '../store'
 
-const selectPromptState = (state: RootState) => state.prompt
+export const selectPrompts = (state: RootState) =>
+  state.prompt.prompts
 
-export const selectAllPrompts = createSelector(
-  [selectPromptState],
-  (prompt) => prompt.prompts,
-)
+export const selectCurrentPrompt = (state: RootState) =>
+  state.prompt.currentPrompt
 
-export const selectSelectedPrompt = createSelector(
-  [selectPromptState],
-  (prompt) => prompt.selectedPrompt,
-)
+export const selectSelectedPrompt = (state: RootState) =>
+  state.prompt.selectedPrompt
 
-export const selectSelectedVersion = createSelector(
-  [selectPromptState],
-  (prompt) => prompt.selectedVersion,
-)
+export const selectSelectedVersion = (state: RootState) =>
+  state.prompt.selectedVersion
 
-export const selectPromptIsLoading = createSelector(
-  [selectPromptState],
-  (prompt) => prompt.isLoading,
-)
+export const selectPromptLoading = (state: RootState) =>
+  state.prompt.loading || state.prompt.isLoading
 
-export const selectPromptError = createSelector([selectPromptState], (prompt) => prompt.error)
-
-export const selectPromptsByProject = (projectId: string) =>
-  createSelector([selectAllPrompts], (prompts) =>
-    prompts.filter((p) => p.project_id === projectId),
-  )
-
-export const selectPromptById = (promptId: string) =>
-  createSelector([selectAllPrompts], (prompts) =>
-    prompts.find((p) => p.id === promptId),
-  )
-
-export const selectPromptVersionCount = (promptId: string) =>
-  createSelector([selectPromptById(promptId)], (prompt) =>
-    prompt?.versions?.length ?? 0,
-  )
+export const selectPromptError = (state: RootState) =>
+  state.prompt.error

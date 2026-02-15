@@ -40,25 +40,19 @@ const Sidebar: React.FC = () => {
           to="/jobs"
           className={`${styles.navItem} ${isActive('/jobs') && styles.active}`}
         >
-          ⚙️ Jobs
+          📊 Running Jobs
         </Link>
         <Link
           to="/metrics"
           className={`${styles.navItem} ${isActive('/metrics') && styles.active}`}
         >
-          📈 Metrics
+          📈 Metrics & Analytics
         </Link>
         <Link
           to="/settings"
           className={`${styles.navItem} ${isActive('/settings') && styles.active}`}
         >
-          ⚙️ Settings
-        </Link>
-        <Link
-          to="/testing"
-          className={`${styles.navItem} ${isActive('/testing') && styles.active}`}
-        >
-          🧪 Testing
+          🔑 API Keys
         </Link>
       </nav>
 

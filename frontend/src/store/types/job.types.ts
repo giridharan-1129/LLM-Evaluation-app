@@ -1,47 +1,35 @@
-export interface JobEntry {
+export interface Job {
   id: string
-  job_id: string
-  input: string
-  expected_output: string
-  actual_output?: string
-  score?: number
-  created_at: string
-}
-
-export interface EvaluationJob {
-  id: string
-  project_id: string
   name: string
-  description?: string
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  project_id: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
   progress: number
   total_entries: number
   completed_entries: number
-  failed_entries: number
+  failed_entries?: number
   created_at: string
   updated_at: string
 }
 
-export interface CreateJobPayload {
-  project_id: string
-  name: string
-  description?: string
-  entries?: Array<{
-    input: string
-    expected_output: string
-  }>
-}
-
-export interface UpdateJobProgressPayload {
+export interface JobEntry {
+  id: string
   job_id: string
-  progress: number
-  completed_entries: number
+  row_number: number
+  input_text: string
+  expected_output: string
+  output: string
+  latency: number
+  tokens: number
+  cost: number
+  accuracy: number
 }
 
 export interface JobState {
-  jobs: EvaluationJob[]
-  selectedJob: EvaluationJob | null
+  jobs: Job[]
+  currentJob: Job | null
+  selectedJob: Job | null
   jobEntries: JobEntry[]
+  loading: boolean
   isLoading: boolean
   error: string | null
   pagination: {
@@ -49,4 +37,10 @@ export interface JobState {
     limit: number
     total: number
   }
+}
+
+export interface CreateJobPayload {
+  name: string
+  project_id: string
+  total_entries: number
 }

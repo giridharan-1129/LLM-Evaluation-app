@@ -1,5 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
-import { metricsService } from '../../api/services'
+import { metricsService } from '../../api/services/metrics.service'
 
 export const fetchJobMetrics = createAsyncThunk(
   'metrics/fetchJobMetrics',

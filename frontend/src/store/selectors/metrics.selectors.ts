@@ -1,40 +1,16 @@
-import { createSelector } from '@reduxjs/toolkit'
 import { RootState } from '../store'
 
-const selectMetricsState = (state: RootState) => state.metrics
+export const selectMetrics = (state: RootState) => state.metrics.metrics
 
-export const selectAllJobMetrics = createSelector(
-  [selectMetricsState],
-  (metrics) => metrics.jobMetrics,
-)
+export const selectJobMetrics = (state: RootState) => state.metrics.jobMetrics
 
-export const selectSelectedJobMetrics = createSelector(
-  [selectMetricsState],
-  (metrics) => metrics.selectedJobMetrics,
-)
+export const selectSelectedJobMetrics = (state: RootState) => state.metrics.selectedJobMetrics
 
-export const selectProjectMetrics = createSelector(
-  [selectMetricsState],
-  (metrics) => metrics.projectMetrics,
-)
+export const selectProjectMetrics = (state: RootState) => state.metrics.projectMetrics
 
-export const selectMetricsIsLoading = createSelector(
-  [selectMetricsState],
-  (metrics) => metrics.isLoading,
-)
+export const selectMetricsIsLoading = (state: RootState) => state.metrics.loading || state.metrics.isLoading
 
-export const selectMetricsError = createSelector([selectMetricsState], (metrics) => metrics.error)
+export const selectMetricsError = (state: RootState) => state.metrics.error
 
-export const selectJobMetricsById = (jobId: string) =>
-  createSelector([selectAllJobMetrics], (metrics) =>
-    metrics.find((m) => m.job_id === jobId),
-  )
-
-export const selectJobMetricsCost = (jobId: string) =>
-  createSelector([selectJobMetricsById(jobId)], (metrics) => metrics?.total_cost ?? 0)
-
-export const selectJobMetricsAccuracy = (jobId: string) =>
-  createSelector([selectJobMetricsById(jobId)], (metrics) => metrics?.accuracy ?? 0)
-
-export const selectJobMetricsLatency = (jobId: string) =>
-  createSelector([selectJobMetricsById(jobId)], (metrics) => metrics?.avg_latency_ms ?? 0)
+export const selectMetricsByJobId = (state: RootState, jobId: string) =>
+  state.metrics.metrics.find((m: any) => m.job_id === jobId)

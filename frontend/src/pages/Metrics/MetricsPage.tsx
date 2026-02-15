@@ -1,332 +1,384 @@
-import React from 'react'
-import { useAppSelector } from '../../store/hooks'
+import React, { useEffect, useState } from 'react'
 import styles from './Metrics.module.css'
 
-/**
- * Enhanced Metrics Page
- * Displays comprehensive evaluation metrics with charts and comparisons
- */
-const MetricsPage: React.FC = () => {
-  const { jobs } = useAppSelector(state => state.job)
+interface EvaluationEntry {
+  question: string
+  expected_answer: string
+  model_a_response: string
+  model_a_latency: number
+  model_a_tokens: number
+  model_a_cost: number
+  model_a_accuracy: number
+  model_b_response: string
+  model_b_latency: number
+  model_b_tokens: number
+  model_b_cost: number
+  model_b_accuracy: number
+  winner: string
+}
 
-  const completedJobs = jobs.filter(j => j.status === 'completed')
-  const totalJobs = jobs.length
-  const totalEntries = jobs.reduce((sum, job) => sum + job.total_entries, 0)
-  const completedEntries = jobs.reduce((sum, job) => sum + (job.completed_entries || 0), 0)
+interface Evaluation {
+  id: string
+  project_id: string
+  prompt_version: string
+  model_a: string
+  model_b: string
+  created_at: string
+  total_entries: number
+  entries: EvaluationEntry[]
+}
+
+interface Filter {
+  project_id: string
+  prompt_version: string
+}
+
+interface ComparisonStats {
+  version: string
+  avgAccuracy: number
+  totalTokens: number
+  totalCost: number
+  avgLatency: number
+  winRate: { modelA: number; modelB: number }
+}
+
+const MetricsPage: React.FC = () => {
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [filteredEvaluations, setFilteredEvaluations] = useState<Evaluation[]>([])
+  const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null)
+  const [filter, setFilter] = useState<Filter>({ project_id: '', prompt_version: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [comparisonStats, setComparisonStats] = useState<ComparisonStats[]>([])
+
+  // Get selected project from localStorage
+  const selectedProjectId = localStorage.getItem('selectedProjectId')
+
+  // Fetch evaluations from backend
+  useEffect(() => {
+    const fetchEvaluations = async () => {
+      if (!selectedProjectId) {
+        setEvaluations([])
+        return
+      }
+
+      setLoading(true)
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/v1/evaluation-results/project/${selectedProjectId}`
+        )
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch evaluations')
+        }
+
+        const data = await response.json()
+        setEvaluations(data)
+        setFilteredEvaluations(data)
+        
+        if (data.length > 0) {
+          setSelectedEvaluation(data[0])
+        }
+
+        // Calculate comparison stats
+        const stats = calculateComparisonStats(data)
+        setComparisonStats(stats)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error fetching evaluations')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchEvaluations()
+  }, [selectedProjectId])
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = evaluations
+
+    if (filter.prompt_version) {
+      filtered = filtered.filter(e => e.prompt_version === filter.prompt_version)
+    }
+
+    setFilteredEvaluations(filtered)
+    if (filtered.length > 0 && !filtered.includes(selectedEvaluation!)) {
+      setSelectedEvaluation(filtered[0])
+    }
+  }, [filter, evaluations, selectedEvaluation])
+
+  const calculateComparisonStats = (evals: Evaluation[]): ComparisonStats[] => {
+    const statsByVersion: { [key: string]: ComparisonStats } = {}
+
+    evals.forEach(evaluation => {
+      const version = evaluation.prompt_version
+      
+      if (!statsByVersion[version]) {
+        statsByVersion[version] = {
+          version,
+          avgAccuracy: 0,
+          totalTokens: 0,
+          totalCost: 0,
+          avgLatency: 0,
+          winRate: { modelA: 0, modelB: 0 }
+        }
+      }
+
+      const stats = statsByVersion[version]
+      const entries = evaluation.entries
+
+      // Calculate averages
+      const totalAccuracy = entries.reduce((sum, e) => sum + (e.model_a_accuracy + e.model_b_accuracy) / 2, 0)
+      const totalLatency = entries.reduce((sum, e) => sum + (e.model_a_latency + e.model_b_latency) / 2, 0)
+      const totalTokens = entries.reduce((sum, e) => sum + e.model_a_tokens + e.model_b_tokens, 0)
+      const totalCost = entries.reduce((sum, e) => sum + e.model_a_cost + e.model_b_cost, 0)
+
+      stats.avgAccuracy = totalAccuracy / entries.length
+      stats.avgLatency = totalLatency / entries.length
+      stats.totalTokens = totalTokens
+      stats.totalCost = totalCost
+
+      // Calculate win rates
+      const modelAWins = entries.filter(e => e.winner === evaluation.model_a).length
+      const modelBWins = entries.filter(e => e.winner === evaluation.model_b).length
+      stats.winRate.modelA = (modelAWins / entries.length) * 100
+      stats.winRate.modelB = (modelBWins / entries.length) * 100
+    })
+
+    return Object.values(statsByVersion)
+  }
+
+  const versions = Array.from(new Set(evaluations.map(e => e.prompt_version)))
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <p>Loading evaluations...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.error}>❌ {error}</div>
+      </div>
+    )
+  }
+
+  if (!selectedProjectId) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.emptyState}>
+          <p>📁 Select a project in Playground to view metrics</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>📊 Evaluation Metrics & Analytics</h1>
-        <p>Comprehensive overview of all evaluation runs and model comparisons</p>
+        <h1>📊 Metrics & Analytics</h1>
+        <p>View and compare metrics from all your evaluations</p>
       </div>
 
       {/* KPI Cards */}
-      <section className={styles.kpiSection}>
-        <h2>Key Performance Indicators</h2>
-        <div className={styles.kpiGrid}>
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiIcon}>📈</div>
-            <div className={styles.kpiContent}>
-              <p className={styles.kpiLabel}>Total Jobs</p>
-              <p className={styles.kpiValue}>{totalJobs}</p>
-              <p className={styles.kpiMeta}>{completedJobs.length} completed</p>
-            </div>
-          </div>
-
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiIcon}>⚙️</div>
-            <div className={styles.kpiContent}>
-              <p className={styles.kpiLabel}>Total Entries</p>
-              <p className={styles.kpiValue}>{totalEntries}</p>
-              <p className={styles.kpiMeta}>{completedEntries} evaluated</p>
-            </div>
-          </div>
-
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiIcon}>💰</div>
-            <div className={styles.kpiContent}>
-              <p className={styles.kpiLabel}>Total Cost</p>
-              <p className={styles.kpiValue}>$12.45</p>
-              <p className={styles.kpiMeta}>Last 30 days</p>
-            </div>
-          </div>
-
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiIcon}>🎯</div>
-            <div className={styles.kpiContent}>
-              <p className={styles.kpiLabel}>Avg Accuracy</p>
-              <p className={styles.kpiValue}>87.3%</p>
-              <p className={styles.kpiMeta}>Across all models</p>
-            </div>
+      <div className={styles.kpiGrid}>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiIcon}>⚡</div>
+          <div className={styles.kpiContent}>
+            <p className={styles.kpiLabel}>Total Evaluations</p>
+            <p className={styles.kpiValue}>{evaluations.length}</p>
           </div>
         </div>
-      </section>
 
-      {/* Dual-Model Comparison Section */}
-      <section className={styles.section}>
-        <h2>🤖 Model Comparison Summary</h2>
-        <div className={styles.comparisonGrid}>
-          <div className={styles.comparisonCard}>
-            <h3>OpenAI (GPT-4) vs DeepSeek</h3>
-            <div className={styles.comparisonMetrics}>
-              <div className={styles.metricRow}>
-                <span>Accuracy</span>
-                <div className={styles.barChart}>
-                  <div className={styles.bar} style={{ width: '85%', background: '#667eea' }}>
-                    85%
-                  </div>
-                </div>
-                <div className={styles.bar} style={{ width: '82%', background: '#764ba2' }}>
-                  82%
-                </div>
-              </div>
-
-              <div className={styles.metricRow}>
-                <span>Cost Efficiency</span>
-                <div className={styles.barChart}>
-                  <div className={styles.bar} style={{ width: '60%', background: '#667eea' }}>
-                    High
-                  </div>
-                </div>
-                <div className={styles.bar} style={{ width: '85%', background: '#764ba2' }}>
-                  Very High
-                </div>
-              </div>
-
-              <div className={styles.metricRow}>
-                <span>Speed</span>
-                <div className={styles.barChart}>
-                  <div className={styles.bar} style={{ width: '75%', background: '#667eea' }}>
-                    Fast
-                  </div>
-                </div>
-                <div className={styles.bar} style={{ width: '90%', background: '#764ba2' }}>
-                  Very Fast
-                </div>
-              </div>
-            </div>
-            <div className={styles.winner}>
-              🏆 <strong>DeepSeek</strong> wins on cost (28% cheaper)
-            </div>
-          </div>
-
-          <div className={styles.comparisonCard}>
-            <h3>OpenAI (GPT-4) vs Anthropic (Claude)</h3>
-            <div className={styles.comparisonMetrics}>
-              <div className={styles.metricRow}>
-                <span>Accuracy</span>
-                <div className={styles.barChart}>
-                  <div className={styles.bar} style={{ width: '85%', background: '#667eea' }}>
-                    85%
-                  </div>
-                </div>
-                <div className={styles.bar} style={{ width: '88%', background: '#28a745' }}>
-                  88%
-                </div>
-              </div>
-
-              <div className={styles.metricRow}>
-                <span>Cost Efficiency</span>
-                <div className={styles.barChart}>
-                  <div className={styles.bar} style={{ width: '60%', background: '#667eea' }}>
-                    High
-                  </div>
-                </div>
-                <div className={styles.bar} style={{ width: '55%', background: '#28a745' }}>
-                  Medium
-                </div>
-              </div>
-
-              <div className={styles.metricRow}>
-                <span>Consistency</span>
-                <div className={styles.barChart}>
-                  <div className={styles.bar} style={{ width: '80%', background: '#667eea' }}>
-                    Good
-                  </div>
-                </div>
-                <div className={styles.bar} style={{ width: '92%', background: '#28a745' }}>
-                  Excellent
-                </div>
-              </div>
-            </div>
-            <div className={styles.winner}>
-              🏆 <strong>Anthropic</strong> wins on accuracy (3% better)
-            </div>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiIcon}>📝</div>
+          <div className={styles.kpiContent}>
+            <p className={styles.kpiLabel}>Total Rows</p>
+            <p className={styles.kpiValue}>{evaluations.reduce((sum, e) => sum + e.total_entries, 0)}</p>
           </div>
         </div>
-      </section>
 
-      {/* Token Usage Trends */}
-      <section className={styles.section}>
-        <h2>📊 Token Usage Trends</h2>
-        <div className={styles.trendCard}>
-          <div className={styles.trendChart}>
-            <div className={styles.chartPlaceholder}>
-              📈 Token Usage Chart
-              <p style={{ fontSize: '12px', marginTop: '10px' }}>
-                Interactive chart showing token consumption over time
-              </p>
-            </div>
-          </div>
-          <div className={styles.trendStats}>
-            <div className={styles.statItem}>
-              <span>Avg Tokens/Request</span>
-              <strong>1,245</strong>
-            </div>
-            <div className={styles.statItem}>
-              <span>Total Tokens Used</span>
-              <strong>125,450</strong>
-            </div>
-            <div className={styles.statItem}>
-              <span>Token Efficiency</span>
-              <strong>92%</strong>
-            </div>
-            <div className={styles.statItem}>
-              <span>Peak Usage Time</span>
-              <strong>2:00 PM</strong>
-            </div>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiIcon}>🎯</div>
+          <div className={styles.kpiContent}>
+            <p className={styles.kpiLabel}>Avg Accuracy</p>
+            <p className={styles.kpiValue}>
+              {evaluations.length > 0
+                ? ((evaluations.reduce((sum, e) => sum + e.entries.reduce((s, en) => s + (en.model_a_accuracy + en.model_b_accuracy) / 2, 0), 0) / evaluations.reduce((sum, e) => sum + e.entries.length, 0)) * 100).toFixed(1)
+                : 0}%
+            </p>
           </div>
         </div>
-      </section>
 
-      {/* Cost Breakdown */}
-      <section className={styles.section}>
-        <h2>💰 Cost Breakdown</h2>
-        <div className={styles.costGrid}>
-          <div className={styles.costCard}>
-            <h3>By Model</h3>
-            <div className={styles.costItem}>
-              <span>GPT-4</span>
-              <strong>$5.25</strong>
-              <div className={styles.costBar} style={{ width: '42%' }}></div>
-            </div>
-            <div className={styles.costItem}>
-              <span>DeepSeek</span>
-              <strong>$3.80</strong>
-              <div className={styles.costBar} style={{ width: '31%', background: '#764ba2' }}></div>
-            </div>
-            <div className={styles.costItem}>
-              <span>Claude</span>
-              <strong>$3.40</strong>
-              <div className={styles.costBar} style={{ width: '27%', background: '#28a745' }}></div>
-            </div>
-          </div>
-
-          <div className={styles.costCard}>
-            <h3>By Provider</h3>
-            <div className={styles.costItem}>
-              <span>OpenAI</span>
-              <strong>$5.25</strong>
-              <div className={styles.costBar} style={{ width: '42%' }}></div>
-            </div>
-            <div className={styles.costItem}>
-              <span>DeepSeek</span>
-              <strong>$3.80</strong>
-              <div className={styles.costBar} style={{ width: '31%', background: '#764ba2' }}></div>
-            </div>
-            <div className={styles.costItem}>
-              <span>Anthropic</span>
-              <strong>$3.40</strong>
-              <div className={styles.costBar} style={{ width: '27%', background: '#28a745' }}></div>
-            </div>
-          </div>
-
-          <div className={styles.costCard}>
-            <h3>Cost Summary</h3>
-            <div className={styles.costSummary}>
-              <div className={styles.summaryRow}>
-                <span>Total Cost</span>
-                <strong>$12.45</strong>
-              </div>
-              <div className={styles.summaryRow}>
-                <span>Avg Cost/Entry</span>
-                <strong>$0.0099</strong>
-              </div>
-              <div className={styles.summaryRow}>
-                <span>Daily Budget</span>
-                <strong>$2.50</strong>
-              </div>
-              <div className={styles.summaryRow}>
-                <span>Projected Monthly</span>
-                <strong>$75.00</strong>
-              </div>
-            </div>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiIcon}>💰</div>
+          <div className={styles.kpiContent}>
+            <p className={styles.kpiLabel}>Total Cost</p>
+            <p className={styles.kpiValue}>
+              ${evaluations.reduce((sum, e) => sum + e.entries.reduce((s, en) => s + en.model_a_cost + en.model_b_cost, 0), 0).toFixed(4)}
+            </p>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Performance Metrics */}
-      <section className={styles.section}>
-        <h2>⚡ Performance Metrics</h2>
-        <div className={styles.performanceGrid}>
-          <div className={styles.performanceCard}>
-            <h3>Accuracy Scores</h3>
-            <div className={styles.metricsList}>
-              <div className={styles.metricItem}>
-                <span>Exact Match</span>
-                <strong>73.5%</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>Semantic Similarity</span>
-                <strong>89.2%</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>BLEU Score</span>
-                <strong>0.82</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>ROUGE Score</span>
-                <strong>0.85</strong>
-              </div>
-            </div>
+      {/* Filters */}
+      <div className={styles.filterSection}>
+        <h2>🔍 Filters</h2>
+        <div className={styles.filterGrid}>
+          <div className={styles.filterGroup}>
+            <label htmlFor="version-filter">Prompt Version</label>
+            <select
+              id="version-filter"
+              value={filter.prompt_version}
+              onChange={(e) => setFilter(prev => ({ ...prev, prompt_version: e.target.value }))}
+              className={styles.select}
+            >
+              <option value="">All Versions</option>
+              {versions.map(v => (
+                <option key={v} value={v}>v{v}</option>
+              ))}
+            </select>
           </div>
 
-          <div className={styles.performanceCard}>
-            <h3>Speed & Latency</h3>
-            <div className={styles.metricsList}>
-              <div className={styles.metricItem}>
-                <span>Avg Response Time</span>
-                <strong>2.3s</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>Min Response Time</span>
-                <strong>1.2s</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>Max Response Time</span>
-                <strong>5.8s</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>P95 Latency</span>
-                <strong>4.5s</strong>
-              </div>
-            </div>
-          </div>
+          <button
+            className={styles.resetBtn}
+            onClick={() => setFilter({ project_id: '', prompt_version: '' })}
+          >
+            Reset Filters
+          </button>
+        </div>
+      </div>
 
-          <div className={styles.performanceCard}>
-            <h3>Success Rates</h3>
-            <div className={styles.metricsList}>
-              <div className={styles.metricItem}>
-                <span>Completion Rate</span>
-                <strong>99.2%</strong>
+      {/* Comparison Stats by Version */}
+      {comparisonStats.length > 0 && (
+        <div className={styles.comparisonSection}>
+          <h2>📈 Prompt Version Comparison</h2>
+          <div className={styles.comparisonGrid}>
+            {comparisonStats.map(stat => (
+              <div key={stat.version} className={styles.comparisonCard}>
+                <h3>v{stat.version}</h3>
+                <div className={styles.statRow}>
+                  <span>Avg Accuracy:</span>
+                  <span className={styles.value}>{(stat.avgAccuracy * 100).toFixed(1)}%</span>
+                </div>
+                <div className={styles.statRow}>
+                  <span>Avg Latency:</span>
+                  <span className={styles.value}>{stat.avgLatency.toFixed(2)}s</span>
+                </div>
+                <div className={styles.statRow}>
+                  <span>Total Tokens:</span>
+                  <span className={styles.value}>{stat.totalTokens}</span>
+                </div>
+                <div className={styles.statRow}>
+                  <span>Total Cost:</span>
+                  <span className={styles.value}>${stat.totalCost.toFixed(4)}</span>
+                </div>
+                <div className={styles.statRow}>
+                  <span>Model A Win Rate:</span>
+                  <span className={styles.value}>{stat.winRate.modelA.toFixed(0)}%</span>
+                </div>
+                <div className={styles.statRow}>
+                  <span>Model B Win Rate:</span>
+                  <span className={styles.value}>{stat.winRate.modelB.toFixed(0)}%</span>
+                </div>
               </div>
-              <div className={styles.metricItem}>
-                <span>Error Rate</span>
-                <strong>0.8%</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>Retry Rate</span>
-                <strong>2.1%</strong>
-              </div>
-              <div className={styles.metricItem}>
-                <span>Model Availability</span>
-                <strong>99.9%</strong>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      </section>
+      )}
+
+      {/* Evaluations List */}
+      <div className={styles.evaluationsSection}>
+        <h2>📋 Evaluations</h2>
+        {filteredEvaluations.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>No evaluations found. Run an evaluation to see results here.</p>
+          </div>
+        ) : (
+          <div className={styles.evaluationsList}>
+            {filteredEvaluations.map(evaluation => (
+              <div
+                key={evaluation.id}
+                className={`${styles.evaluationItem} ${selectedEvaluation?.id === evaluation.id ? styles.selected : ''}`}
+                onClick={() => setSelectedEvaluation(evaluation)}
+              >
+                <div className={styles.evalHeader}>
+                  <div className={styles.evalInfo}>
+                    <h3>v{evaluation.prompt_version} - {evaluation.model_a} vs {evaluation.model_b}</h3>
+                    <p className={styles.evalMeta}>{evaluation.created_at}</p>
+                  </div>
+                  <div className={styles.evalMetrics}>
+                    <span className={styles.metric}>📊 {evaluation.total_entries} rows</span>
+                    <span className={styles.metric}>🎯 {(evaluation.entries.reduce((sum, e) => sum + (e.model_a_accuracy + e.model_b_accuracy) / 2, 0) / evaluation.entries.length * 100).toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Selected Evaluation Details */}
+      {selectedEvaluation && (
+        <div className={styles.detailsSection}>
+          <h2>📋 Details: v{selectedEvaluation.prompt_version}</h2>
+          
+          <div className={styles.detailsTableWrapper}>
+            <table className={styles.detailsTable}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Question</th>
+                  <th colSpan={5} style={{textAlign: 'center'}}>{selectedEvaluation.model_a}</th>
+                  <th colSpan={5} style={{textAlign: 'center'}}>{selectedEvaluation.model_b}</th>
+                  <th>Winner</th>
+                </tr>
+                <tr>
+                  <th></th>
+                  <th></th>
+                  <th>Response</th>
+                  <th>Latency</th>
+                  <th>Tokens</th>
+                  <th>Cost</th>
+                  <th>Accuracy</th>
+                  <th>Response</th>
+                  <th>Latency</th>
+                  <th>Tokens</th>
+                  <th>Cost</th>
+                  <th>Accuracy</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedEvaluation.entries.map((entry, idx) => (
+                  <tr key={idx}>
+                    <td>{idx + 1}</td>
+                    <td className={styles.questionCell}>{entry.question}</td>
+                    <td className={styles.responseCell}>
+                      <div className={styles.responseText}>{entry.model_a_response}</div>
+                    </td>
+                    <td>{entry.model_a_latency.toFixed(2)}s</td>
+                    <td>{entry.model_a_tokens}</td>
+                    <td>${entry.model_a_cost.toFixed(4)}</td>
+                    <td>{(entry.model_a_accuracy * 100).toFixed(1)}%</td>
+                    <td className={styles.responseCell}>
+                      <div className={styles.responseText}>{entry.model_b_response}</div>
+                    </td>
+                    <td>{entry.model_b_latency.toFixed(2)}s</td>
+                    <td>{entry.model_b_tokens}</td>
+                    <td>${entry.model_b_cost.toFixed(4)}</td>
+                    <td>{(entry.model_b_accuracy * 100).toFixed(1)}%</td>
+                    <td>🏆 {entry.winner}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

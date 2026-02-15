@@ -4,7 +4,9 @@ import type { ProjectState } from '../types'
 
 const initialState: ProjectState = {
   projects: [],
+  currentProject: null,
   selectedProject: null,
+  loading: false,
   isLoading: false,
   error: null,
   pagination: {
@@ -27,15 +29,18 @@ const projectSlice = createSlice({
     builder
       .addCase(fetchProjects.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.projects = action.payload.projects || []
         state.pagination = action.payload.pagination || state.pagination
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
 
@@ -43,14 +48,18 @@ const projectSlice = createSlice({
     builder
       .addCase(fetchProjectById.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(fetchProjectById.fulfilled, (state, action) => {
         state.isLoading = false
+        state.loading = false
+        state.currentProject = action.payload
         state.selectedProject = action.payload
       })
       .addCase(fetchProjectById.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
 
@@ -58,14 +67,17 @@ const projectSlice = createSlice({
     builder
       .addCase(createProject.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(createProject.fulfilled, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.projects.push(action.payload)
       })
       .addCase(createProject.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
 
@@ -73,10 +85,12 @@ const projectSlice = createSlice({
     builder
       .addCase(updateProject.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(updateProject.fulfilled, (state, action) => {
         state.isLoading = false
+        state.loading = false
         const index = state.projects.findIndex((p) => p.id === action.payload.id)
         if (index !== -1) {
           state.projects[index] = action.payload
@@ -84,9 +98,13 @@ const projectSlice = createSlice({
         if (state.selectedProject?.id === action.payload.id) {
           state.selectedProject = action.payload
         }
+        if (state.currentProject?.id === action.payload.id) {
+          state.currentProject = action.payload
+        }
       })
       .addCase(updateProject.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
 
@@ -94,17 +112,23 @@ const projectSlice = createSlice({
     builder
       .addCase(deleteProject.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(deleteProject.fulfilled, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.projects = state.projects.filter((p) => p.id !== action.payload)
         if (state.selectedProject?.id === action.payload) {
           state.selectedProject = null
         }
+        if (state.currentProject?.id === action.payload) {
+          state.currentProject = null
+        }
       })
       .addCase(deleteProject.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
   },

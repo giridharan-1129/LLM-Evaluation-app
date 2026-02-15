@@ -1,1 +1,1 @@
-export { default } from './PlaygroundPage'
+export { default as PlaygroundPage } from './PlaygroundPage'

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:password@localhost:5432/llm_eval_db"
+        "postgresql://giridharanp@localhost:5432/llm_eval_db"
     )
     DATABASE_ECHO: bool = DEBUG
 

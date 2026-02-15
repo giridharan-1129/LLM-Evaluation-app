@@ -4,6 +4,7 @@ Database Connection and Session Management
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy import text
 from typing import AsyncGenerator
 import os
 
@@ -38,7 +39,9 @@ async def init_db():
     """Initialize database (create tables)"""
     try:
         async with engine.begin() as conn:
+            # Create all tables
             await conn.run_sync(Base.metadata.create_all)
+        
         print("✅ Database initialized successfully")
     except Exception as e:
         print(f"⚠️  Database initialization skipped: {str(e)}")

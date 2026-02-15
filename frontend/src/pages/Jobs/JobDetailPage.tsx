@@ -28,7 +28,7 @@ const JobDetailPage: React.FC = () => {
         <p><strong>Progress:</strong> {selectedJob.progress}%</p>
         <p><strong>Total Entries:</strong> {selectedJob.total_entries}</p>
         <p><strong>Completed:</strong> {selectedJob.completed_entries}</p>
-        <p><strong>Failed:</strong> {selectedJob.failed_entries}</p>
+        
         <p><strong>Created:</strong> {new Date(selectedJob.created_at).toLocaleString()}</p>
       </div>
     </div>

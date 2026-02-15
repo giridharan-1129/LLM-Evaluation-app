@@ -688,3 +688,39 @@ class LLMService:
             logger.error(f"Dual-model evaluation failed: {str(e)}")
             raise
 
+
+
+    async def improve_prompt_with_deepseek(self, prompt: str, api_key: str) -> str:
+        """
+        Use DeepSeek to improve a prompt
+        """
+        import httpx
+        
+        improvement_prompt = f"""You are an expert prompt engineer. Improve the following prompt to make it clearer, more specific, and more effective.
+
+Original Prompt:
+{prompt}
+
+Provide ONLY the improved prompt, nothing else."""
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [
+                        {"role": "user", "content": improvement_prompt}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"DeepSeek API error: {response.text}")
+            
+            result = response.json()
+            improved = result['choices'][0]['message']['content'].strip()
+            return improved

@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import type { CreateProjectPayload, Project } from '../types'
-import { projectService } from '../../api/services'
+import { projectService } from '../../api/services/project.service'
 
 interface FetchProjectsParams {
   page?: number

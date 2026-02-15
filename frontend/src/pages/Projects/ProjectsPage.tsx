@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAppDispatch, useAppSelector } from '../../store/hooks'
+import { fetchProjects } from '../../store/thunks'
 import styles from './Projects.module.css'
 
-interface Project {
+interface LocalProject {
   id: string
   name: string
   description: string
@@ -12,37 +14,29 @@ interface Project {
 
 const ProjectsPage: React.FC = () => {
   const navigate = useNavigate()
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: '1',
-      name: 'Machine Learning Evaluation',
-      description: 'Comparing GPT-4 vs DeepSeek for ML questions',
-      created_at: '2024-02-15',
-      total_evaluations: 0
-    }
-  ])
-  
+  const dispatch = useAppDispatch()
+  const { } = useAppSelector(state => state.project)
+
+  const [localProjects, setLocalProjects] = useState<LocalProject[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectDesc, setNewProjectDesc] = useState('')
 
-  // Load projects from localStorage
   useEffect(() => {
+    dispatch(fetchProjects())
+  }, [dispatch])
+
+  useEffect(() => {
+    // Load projects from localStorage
     const savedProjects = localStorage.getItem('projects')
     if (savedProjects) {
       try {
-        setProjects(JSON.parse(savedProjects))
+        setLocalProjects(JSON.parse(savedProjects))
       } catch (e) {
-        console.log('Could not load saved projects')
+        console.log('Error loading projects')
       }
     }
   }, [])
-
-  // Save projects to localStorage
-  const saveProjects = (updatedProjects: Project[]) => {
-    setProjects(updatedProjects)
-    localStorage.setItem('projects', JSON.stringify(updatedProjects))
-  }
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
@@ -50,7 +44,7 @@ const ProjectsPage: React.FC = () => {
       return
     }
 
-    const newProject: Project = {
+    const newProject: LocalProject = {
       id: Date.now().toString(),
       name: newProjectName,
       description: newProjectDesc,
@@ -58,8 +52,10 @@ const ProjectsPage: React.FC = () => {
       total_evaluations: 0
     }
 
-    const updated = [...projects, newProject]
-    saveProjects(updated)
+    const updated = [...localProjects, newProject]
+    setLocalProjects(updated)
+    localStorage.setItem('projects', JSON.stringify(updated))
+    
     setNewProjectName('')
     setNewProjectDesc('')
     setShowCreateForm(false)
@@ -67,11 +63,13 @@ const ProjectsPage: React.FC = () => {
   }
 
   const handleDeleteProject = (projectId: string) => {
-    const projectName = projects.find(p => p.id === projectId)?.name
+    const projectName = localProjects.find(p => p.id === projectId)?.name
     if (window.confirm(`Delete project "${projectName}"? This cannot be undone.`)) {
-      const updated = projects.filter(p => p.id !== projectId)
-      saveProjects(updated)
-      // If deleted project was selected, clear it
+      const updated = localProjects.filter(p => p.id !== projectId)
+      setLocalProjects(updated)
+      localStorage.setItem('projects', JSON.stringify(updated))
+      
+      // Clear selected project if it was deleted
       if (localStorage.getItem('selectedProjectId') === projectId) {
         localStorage.removeItem('selectedProjectId')
       }
@@ -79,11 +77,8 @@ const ProjectsPage: React.FC = () => {
     }
   }
 
-  const handleSelectProject = (projectId: string) => {
-    // Store selected project in localStorage
+  const handleOpenProject = (projectId: string) => {
     localStorage.setItem('selectedProjectId', projectId)
-    console.log('Selected project:', projectId)
-    // Navigate to playground
     navigate('/playground')
   }
 
@@ -106,26 +101,36 @@ const ProjectsPage: React.FC = () => {
       {showCreateForm && (
         <div className={styles.createForm}>
           <h3>Create New Project</h3>
+          
           <div className={styles.formGroup}>
-            <label>Project Name *</label>
+            <label htmlFor="project-name">Project Name *</label>
             <input
+              id="project-name"
               type="text"
               placeholder="e.g., ML Model Comparison"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
+              className={styles.input}
             />
           </div>
+
           <div className={styles.formGroup}>
-            <label>Description</label>
+            <label htmlFor="project-desc">Description</label>
             <textarea
+              id="project-desc"
               placeholder="Describe your project..."
               value={newProjectDesc}
               onChange={(e) => setNewProjectDesc(e.target.value)}
               rows={3}
+              className={styles.textarea}
             />
           </div>
+
           <div className={styles.formButtons}>
-            <button className={styles.submitBtn} onClick={handleCreateProject}>
+            <button 
+              className={styles.submitBtn} 
+              onClick={handleCreateProject}
+            >
               Create Project
             </button>
             <button 
@@ -139,12 +144,12 @@ const ProjectsPage: React.FC = () => {
       )}
 
       <div className={styles.projectsGrid}>
-        {projects.length === 0 ? (
+        {localProjects.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No projects yet. Create one to get started!</p>
           </div>
         ) : (
-          projects.map((project) => (
+          localProjects.map((project) => (
             <div 
               key={project.id}
               className={styles.projectCard}
@@ -153,15 +158,17 @@ const ProjectsPage: React.FC = () => {
                 <h3>{project.name}</h3>
                 <span className={styles.date}>{project.created_at}</span>
               </div>
-              <p className={styles.description}>{project.description}</p>
+
+              <p className={styles.description}>{project.description || 'No description'}</p>
+
               <div className={styles.cardFooter}>
                 <span className={styles.stat}>
                   📊 {project.total_evaluations} evaluations
                 </span>
                 <div className={styles.cardButtons}>
                   <button 
-                    className={styles.selectBtn}
-                    onClick={() => handleSelectProject(project.id)}
+                    className={styles.openBtn}
+                    onClick={() => handleOpenProject(project.id)}
                   >
                     Open →
                   </button>

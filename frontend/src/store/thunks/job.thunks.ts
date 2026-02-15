@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import type { CreateJobPayload } from '../types'
-import { jobService } from '../../api/services'
+import { jobService } from '../../api/services/job.service'
 
 export const fetchJobsByProject = createAsyncThunk(
   'job/fetchByProject',

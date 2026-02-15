@@ -1,22 +1,23 @@
-import React from 'react'
-import { Outlet } from 'react-router-dom'
-import Header from './Header'
+import React, { ReactNode } from 'react'
 import Sidebar from './Sidebar'
+import Header from './Header'
+import Footer from './Footer'
 import styles from './Layout.module.css'
 
-/**
- * Layout Component
- * Main application layout with header and sidebar
- */
-const Layout: React.FC = () => {
+interface LayoutProps {
+  children: ReactNode
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className={styles.layoutContainer}>
+    <div className={styles.layout}>
       <Sidebar />
-      <div className={styles.main}>
+      <div className={styles.mainContent} style={{ marginLeft: '200px' }}>
         <Header />
-        <div className={styles.content}>
-          <Outlet />
-        </div>
+        <main className={styles.content}>
+          {children}
+        </main>
+        <Footer />
       </div>
     </div>
   )

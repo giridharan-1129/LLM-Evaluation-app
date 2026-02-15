@@ -1,10 +1,28 @@
 import React, { useState, useEffect } from 'react'
+import { ExcelUpload } from '../../components/Jobs/ExcelUpload'
+import { LLMConfig, DualLLMConfiguration } from '../../components/Jobs/LLMConfig'
+import evaluationService from '../../api/services/evaluation.service'
+import promptService from '../../api/services/prompt.service'
 import styles from './Playground.module.css'
 
 interface Project {
   id: string
   name: string
   description: string
+}
+
+interface APIKeys {
+  openai: string
+  deepseek: string
+  anthropic: string
+}
+
+interface PromptVersion {
+  id: string
+  version: string
+  system_prompt: string
+  user_prompt: string
+  created_at: string
 }
 
 interface StreamingRow {
@@ -22,69 +40,77 @@ interface StreamingRow {
   model_b_cost: number
   model_b_accuracy: number
   winner: string
-}
-
-interface PromptVersion {
-  id: string
-  version: string
-  system_prompt: string
-  user_prompt: string
-  created_at: string
+  status: 'pending' | 'streaming' | 'complete'
 }
 
 interface EvaluationRun {
+  id: string
   version: string
   created_at: string
   rows: StreamingRow[]
+  system_prompt: string
+  user_prompt: string
+  model_a: string
+  model_b: string
+  total_tokens: number
+  total_cost: number
 }
 
 const PlaygroundPage: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [apiKeys, setApiKeys] = useState<APIKeys>({ openai: '', deepseek: '', anthropic: '' })
 
-  const [activeTab, setActiveTab] = useState<'setup' | 'test' | 'results'>('setup')
+  const [activeTab, setActiveTab] = useState<'setup' | 'evaluate' | 'results'>('setup')
   const [uploadedDataset, setUploadedDataset] = useState<any>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [evaluationRuns, setEvaluationRuns] = useState<EvaluationRun[]>([])
   const [progress, setProgress] = useState(0)
-  const [currentStreamingRow, setCurrentStreamingRow] = useState<StreamingRow | null>(null)
+  const [currentStreamingRow, setCurrentStreamingRow] = useState<number | null>(null)
+  const [llmConfig, setLlmConfig] = useState<DualLLMConfiguration | null>(null)
 
   const [promptVersions, setPromptVersions] = useState<PromptVersion[]>([
     {
       id: '1',
       version: '1.0',
-      system_prompt: 'You are a helpful AI assistant specialized in machine learning.',
+      system_prompt: 'You are a helpful AI assistant.',
       user_prompt: 'Answer this question: {Question}',
       created_at: '2024-01-01'
     }
   ])
-
-  const [selectedPromptVersion, setSelectedPromptVersion] = useState<PromptVersion>(promptVersions[0])
-  const [systemPrompt, setSystemPrompt] = useState(selectedPromptVersion.system_prompt)
-  const [userPrompt, setUserPrompt] = useState(selectedPromptVersion.user_prompt)
+  const [selectedPromptVersions, setSelectedPromptVersions] = useState<string[]>(['1'])
+  const [systemPrompt, setSystemPrompt] = useState(promptVersions[0].system_prompt)
+  const [userPrompt, setUserPrompt] = useState(promptVersions[0].user_prompt)
   const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false)
-  const [improvedPrompt, setImprovedPrompt] = useState('')
 
-  // Load projects from localStorage
   useEffect(() => {
+    // Load projects
     const savedProjects = localStorage.getItem('projects')
     if (savedProjects) {
       try {
         const loaded = JSON.parse(savedProjects)
         setProjects(loaded)
-        
         const storedProjectId = localStorage.getItem('selectedProjectId')
         if (storedProjectId) {
           const project = loaded.find((p: Project) => p.id === storedProjectId)
           if (project) {
             setSelectedProjectId(storedProjectId)
-            setSelectedProject(project)
           }
         }
       } catch (e) {
         console.log('Error loading projects')
+      }
+    }
+
+    // Load API keys from Settings
+    const savedKeys = localStorage.getItem('llm_api_keys')
+    if (savedKeys) {
+      try {
+        const keys = JSON.parse(savedKeys)
+        setApiKeys(keys)
+      } catch (e) {
+        console.log('Error loading API keys')
       }
     }
   }, [])
@@ -93,7 +119,6 @@ const PlaygroundPage: React.FC = () => {
     const project = projects.find(p => p.id === projectId)
     if (project) {
       setSelectedProjectId(projectId)
-      setSelectedProject(project)
       localStorage.setItem('selectedProjectId', projectId)
     }
   }
@@ -103,7 +128,7 @@ const PlaygroundPage: React.FC = () => {
   }
 
   const handleSavePromptVersion = () => {
-    const newVersion = (parseFloat(selectedPromptVersion.version) + 0.1).toFixed(1)
+    const newVersion = (parseFloat(promptVersions[promptVersions.length - 1].version) + 0.1).toFixed(1)
     const newPromptVersion: PromptVersion = {
       id: Date.now().toString(),
       version: newVersion,
@@ -112,45 +137,43 @@ const PlaygroundPage: React.FC = () => {
       created_at: new Date().toLocaleDateString()
     }
     
-    setPromptVersions([...promptVersions, newPromptVersion])
-    setSelectedPromptVersion(newPromptVersion)
+    const updated = [...promptVersions, newPromptVersion]
+    setPromptVersions(updated)
+    setSelectedPromptVersions([newPromptVersion.id])
     alert(`✅ Prompt saved as version ${newVersion}`)
   }
 
   const handleDeletePromptVersion = (versionId: string) => {
-    if (selectedPromptVersion.id === versionId) {
-      alert('❌ Cannot delete current version. Switch to another version first.')
-      return
-    }
-    
     const updated = promptVersions.filter(p => p.id !== versionId)
     setPromptVersions(updated)
-    alert('✅ Version deleted')
+    setSelectedPromptVersions(prev => prev.filter(id => id !== versionId))
   }
 
   const handleLoadPromptVersion = (version: PromptVersion) => {
-    setSelectedPromptVersion(version)
     setSystemPrompt(version.system_prompt)
     setUserPrompt(version.user_prompt)
-    setShowVersionHistory(false)
+  }
+
+  const handleTogglePromptVersion = (versionId: string) => {
+    setSelectedPromptVersions(prev => {
+      if (prev.includes(versionId)) {
+        return prev.filter(id => id !== versionId)
+      } else {
+        return [...prev, versionId]
+      }
+    })
   }
 
   const handleImprovePrompt = async () => {
     setIsImprovingPrompt(true)
     try {
-      // In production, call DeepSeek API to improve prompt
-      const improvePrompt = `You are a prompt engineering expert. Improve this prompt:
-System Prompt: ${systemPrompt}
-User Template: ${userPrompt}
-
-Make it clearer, more specific, and more effective. Return ONLY the improved prompt.`
-
-      // Mock improvement
-      const improved = `${systemPrompt} Be precise and concise in your answers.`
-      setImprovedPrompt(improved)
-      alert('✅ Suggested improvement:\n\n' + improved)
+      const result = await promptService.improvePrompt(systemPrompt)
+      if (result.improved) {
+        setSystemPrompt(result.improved)
+        alert('✅ Prompt improved!')
+      }
     } catch (error) {
-      alert('Error improving prompt')
+      alert('Error improving prompt: ' + (error instanceof Error ? error.message : 'Unknown error'))
     } finally {
       setIsImprovingPrompt(false)
     }
@@ -161,62 +184,200 @@ Make it clearer, more specific, and more effective. Return ONLY the improved pro
       alert('❌ Select a project')
       return
     }
+    if (!llmConfig) {
+      alert('❌ Configure both models')
+      return
+    }
     if (!uploadedDataset) {
       alert('❌ Upload dataset')
+      return
+    }
+    if (selectedPromptVersions.length === 0) {
+      alert('❌ Select at least one prompt version')
+      return
+    }
+
+    // Check if API keys are configured
+    if (!apiKeys.openai || !apiKeys.deepseek) {
+      alert('❌ Configure API keys in Settings → API Keys')
       return
     }
 
     setIsRunning(true)
     setProgress(0)
+    setActiveTab('results')
     setEvaluationRuns([])
     setCurrentStreamingRow(null)
 
     try {
-      const evaluationRows: StreamingRow[] = []
+      for (const versionId of selectedPromptVersions) {
+        const version = promptVersions.find(p => p.id === versionId)
+        if (!version) continue
 
-      // Stream each row one by one
-      for (let i = 0; i < uploadedDataset.data.length; i++) {
-        const row = uploadedDataset.data[i]
-        
-        // Simulate API call streaming
-        await new Promise(resolve => setTimeout(resolve, 2000))
-
-        const streamedRow: StreamingRow = {
-          id: i + 1,
+        // Initialize rows with pending status
+        const initialRows: StreamingRow[] = uploadedDataset.data.map((row: any, idx: number) => ({
+          id: idx + 1,
           question: row.Question,
           expected_answer: row['Expected Answer'],
-          model_a_response: `This is a detailed response from GPT-4 about ${row.Question}. GPT-4 provides: ${row['Expected Answer'].substring(0, 100)}...`,
-          model_a_latency: (Math.random() * 2 + 0.5).toFixed(2) as any,
-          model_a_tokens: Math.round(Math.random() * 200 + 100),
-          model_a_cost: (Math.random() * 0.01 + 0.001).toFixed(4) as any,
-          model_a_accuracy: Math.random() * 0.3 + 0.65,
-          model_b_response: `DeepSeek provides a comprehensive answer to ${row.Question}: ${row['Expected Answer'].substring(0, 100)}...`,
-          model_b_latency: (Math.random() * 1.5 + 0.3).toFixed(2) as any,
-          model_b_tokens: Math.round(Math.random() * 200 + 100),
-          model_b_cost: (Math.random() * 0.008 + 0.0005).toFixed(4) as any,
-          model_b_accuracy: Math.random() * 0.3 + 0.65,
-          winner: Math.random() > 0.5 ? 'gpt-4' : 'deepseek-chat'
+          model_a_response: '⏳ Waiting...',
+          model_a_latency: 0,
+          model_a_tokens: 0,
+          model_a_cost: 0,
+          model_a_accuracy: 0,
+          model_b_response: '⏳ Waiting...',
+          model_b_latency: 0,
+          model_b_tokens: 0,
+          model_b_cost: 0,
+          model_b_accuracy: 0,
+          winner: '',
+          status: 'pending' as const
+        }))
+
+        const newRun: EvaluationRun = {
+          id: Date.now().toString() + versionId,
+          version: version.version,
+          created_at: new Date().toLocaleString(),
+          rows: initialRows,
+          system_prompt: version.system_prompt,
+          user_prompt: version.user_prompt,
+          model_a: llmConfig.modelA.model,
+          model_b: llmConfig.modelB.model,
+          total_tokens: 0,
+          total_cost: 0
         }
 
-        evaluationRows.push(streamedRow)
-        setCurrentStreamingRow(streamedRow)
-        setProgress(Math.round(((i + 1) / uploadedDataset.data.length) * 100))
-      }
+        setEvaluationRuns([newRun])
 
-      // Save evaluation run
-      const newRun: EvaluationRun = {
-        version: selectedPromptVersion.version,
-        created_at: new Date().toLocaleString(),
-        rows: evaluationRows
-      }
+        // Call backend with streaming fetch
+        try {
+          const response = await fetch('http://localhost:8000/api/v1/evaluate/rows', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_prompt: version.system_prompt,
+              user_prompt_template: version.user_prompt,
+              rows: uploadedDataset.data.map((row: any) => ({
+                question: row.Question,
+                expected_answer: row['Expected Answer']
+              })),
+              model_a: llmConfig.modelA.model,
+              model_b: llmConfig.modelB.model,
+              openai_key: apiKeys.openai,
+              deepseek_key: apiKeys.deepseek,
+              anthropic_key: apiKeys.anthropic
+            })
+          })
 
-      setEvaluationRuns([newRun, ...evaluationRuns])
-      setActiveTab('results')
+          if (!response.ok) {
+            throw new Error(`Evaluation failed: ${response.statusText}`)
+          }
+
+          // Read the stream
+          const reader = response.body?.getReader()
+          if (!reader) throw new Error('No response body')
+
+          const decoder = new TextDecoder()
+          let buffer = ''
+          let totalTokens = 0
+          let totalCost = 0
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+
+            // Process complete lines
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (!line.trim()) continue
+
+              try {
+                const data = JSON.parse(line)
+
+                if (data.type === 'start') {
+                  console.log(`Starting evaluation with ${data.total_rows} rows`)
+                  setProgress(5)
+                } else if (data.type === 'row_complete') {
+                  const result = data.result
+                  const rowIdx = data.row_number - 1
+
+                  // Update the row with completed data
+                  setEvaluationRuns(prev => {
+                    const updated = [...prev]
+                    updated[0].rows[rowIdx] = {
+                      id: data.row_number,
+                      question: result.question,
+                      expected_answer: result.expected_answer,
+                      model_a_response: result.model_a_response,
+                      model_a_latency: result.model_a_latency,
+                      model_a_tokens: result.model_a_tokens,
+                      model_a_cost: result.model_a_cost,
+                      model_a_accuracy: result.model_a_accuracy,
+                      model_b_response: result.model_b_response,
+                      model_b_latency: result.model_b_latency,
+                      model_b_tokens: result.model_b_tokens,
+                      model_b_cost: result.model_b_cost,
+                      model_b_accuracy: result.model_b_accuracy,
+                      winner: result.winner,
+                      status: 'complete' as const
+                    }
+                    
+                    totalTokens = updated[0].rows.reduce((sum, r) => sum + r.model_a_tokens + r.model_b_tokens, 0)
+                    totalCost = parseFloat(updated[0].rows.reduce((sum, r) => sum + r.model_a_cost + r.model_b_cost, 0).toFixed(4))
+                    
+                    updated[0].total_tokens = totalTokens
+                    updated[0].total_cost = totalCost
+
+                    return updated
+                  })
+
+                  setCurrentStreamingRow(data.row_number)
+                  setProgress(data.progress)
+                  console.log(`Row ${data.row_number} complete - ${data.progress}%`)
+                } else if (data.type === 'row_error') {
+                  console.error(`Error in row ${data.row_number}: ${data.error}`)
+                } else if (data.type === 'complete') {
+                  console.log('✅ Evaluation complete')
+                  setProgress(100)
+                  setCurrentStreamingRow(null)
+
+                  // Store in backend
+                  const evaluationRuns_current = evaluationRuns[0]
+                  if (evaluationRuns_current) {
+                    try {
+                      evaluationService.storeEvaluationResults({
+                        project_id: selectedProjectId,
+                        prompt_version: version.version,
+                        model_a: llmConfig.modelA.model,
+                        model_b: llmConfig.modelB.model,
+                        rows: evaluationRuns_current.rows
+                      }).catch(err => console.error('Error storing:', err))
+                    } catch (err) {
+                      console.error('Error storing results:', err)
+                    }
+                  }
+                } else if (data.type === 'error') {
+                  alert('❌ Error: ' + data.error)
+                  throw new Error(data.error)
+                }
+              } catch (e) {
+                console.error('Error parsing line:', line, e)
+              }
+            }
+          }
+
+          setIsRunning(false)
+        } catch (err) {
+          alert('Evaluation error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+          setIsRunning(false)
+        }
+      }
     } catch (error) {
       alert('Error: ' + (error instanceof Error ? error.message : 'Unknown error'))
-    } finally {
       setIsRunning(false)
-      setCurrentStreamingRow(null)
     }
   }
 
@@ -236,17 +397,23 @@ Make it clearer, more specific, and more effective. Return ONLY the improved pro
             ))}
           </select>
         </div>
+        {(!apiKeys.openai || !apiKeys.deepseek) && (
+          <div className={styles.apiKeyWarning}>
+            ⚠️ Configure API keys in Settings
+          </div>
+        )}
       </div>
 
       <div className={styles.header}>
         <h1>🎮 Prompt Playground</h1>
+        <p>Upload Excel, configure models, compare prompt versions</p>
       </div>
 
       <div className={styles.tabs}>
         <button className={`${styles.tab} ${activeTab === 'setup' ? styles.active : ''}`} onClick={() => setActiveTab('setup')}>
           1️⃣ Setup
         </button>
-        <button className={`${styles.tab} ${activeTab === 'test' ? styles.active : ''}`} onClick={() => setActiveTab('test')}>
+        <button className={`${styles.tab} ${activeTab === 'evaluate' ? styles.active : ''}`} onClick={() => setActiveTab('evaluate')}>
           2️⃣ Evaluate
         </button>
         <button className={`${styles.tab} ${activeTab === 'results' ? styles.active : ''}`} onClick={() => setActiveTab('results')}>
@@ -257,28 +424,24 @@ Make it clearer, more specific, and more effective. Return ONLY the improved pro
       {activeTab === 'setup' && (
         <div className={styles.tabContent}>
           <div className={styles.section}>
-            <h3>Step 1: Upload Dataset</h3>
-            {uploadedDataset ? (
+            <h3>Step 1: Upload Excel Dataset</h3>
+            <p className={styles.hint}>Upload Excel with: Question, Expected Answer columns</p>
+            <ExcelUpload onUploadSuccess={handleUploadSuccess} />
+            {uploadedDataset && (
               <div className={styles.success}>✅ {uploadedDataset.data.length} rows loaded</div>
-            ) : (
-              <p>Upload Excel with: Question, Expected Answer columns</p>
             )}
           </div>
 
           <div className={styles.section}>
             <h3>Step 2: Manage Prompt Versions</h3>
             <div className={styles.versionManager}>
-              <div className={styles.currentVersion}>
-                <p>Current Version: <strong>v{selectedPromptVersion.version}</strong></p>
-              </div>
-
               <div className={styles.promptEditor}>
                 <label>System Prompt:</label>
                 <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={3} />
               </div>
 
               <div className={styles.promptEditor}>
-                <label>User Prompt Template (use {'{Question}'}  for placeholder):</label>
+                <label>User Prompt Template (use {'{Question}'}):</label>
                 <textarea value={userPrompt} onChange={(e) => setUserPrompt(e.target.value)} rows={3} />
               </div>
 
@@ -287,19 +450,24 @@ Make it clearer, more specific, and more effective. Return ONLY the improved pro
                   💾 Save as New Version
                 </button>
                 <button className={styles.improveBtn} onClick={handleImprovePrompt} disabled={isImprovingPrompt}>
-                  ✨ Improve Prompt (DeepSeek)
+                  {isImprovingPrompt ? '⏳ Improving...' : '✨ Improve Prompt'}
                 </button>
                 <button className={styles.historyBtn} onClick={() => setShowVersionHistory(!showVersionHistory)}>
-                  📜 History ({promptVersions.length})
+                  📜 Versions ({promptVersions.length})
                 </button>
               </div>
 
               {showVersionHistory && (
                 <div className={styles.versionHistory}>
                   {promptVersions.map((v) => (
-                    <div key={v.id} className={`${styles.versionItem} ${selectedPromptVersion.id === v.id ? styles.selected : ''}`}>
+                    <div key={v.id} className={styles.versionItem}>
+                      <input
+                        type="checkbox"
+                        checked={selectedPromptVersions.includes(v.id)}
+                        onChange={() => handleTogglePromptVersion(v.id)}
+                      />
                       <span onClick={() => handleLoadPromptVersion(v)}>v{v.version} - {v.created_at}</span>
-                      {selectedPromptVersion.id !== v.id && (
+                      {promptVersions.length > 1 && (
                         <button className={styles.deleteVersionBtn} onClick={() => handleDeletePromptVersion(v.id)}>
                           🗑️
                         </button>
@@ -310,46 +478,29 @@ Make it clearer, more specific, and more effective. Return ONLY the improved pro
               )}
             </div>
           </div>
+
+          <div className={styles.section}>
+            <h3>Step 3: Configure Dual LLM Models</h3>
+            <LLMConfig onConfigChange={setLlmConfig} />
+          </div>
         </div>
       )}
 
-      {activeTab === 'test' && (
+      {activeTab === 'evaluate' && (
         <div className={styles.tabContent}>
           <div className={styles.evaluateCard}>
-            {uploadedDataset ? (
+            {uploadedDataset && llmConfig && selectedPromptVersions.length > 0 && apiKeys.openai && apiKeys.deepseek ? (
               <>
-                <h3>Ready to Evaluate {uploadedDataset.data.length} questions?</h3>
-                <p>Prompt v{selectedPromptVersion.version}</p>
+                <h3>Ready to Evaluate</h3>
+                <p>📊 Dataset: {uploadedDataset.data.length} questions</p>
+                <p>📝 Prompt Versions: {selectedPromptVersions.length}</p>
+                <p>🤖 Models: {llmConfig.modelA.model} vs {llmConfig.modelB.model}</p>
                 <button className={styles.evaluateBtn} onClick={handleRunEvaluation} disabled={isRunning}>
-                  {isRunning ? `⏳ ${progress}% - Streaming...` : '▶️ Start Evaluation'}
+                  {isRunning ? `⏳ ${progress}%` : '▶️ Start Evaluation'}
                 </button>
-                {isRunning && (
-                  <div>
-                    <div className={styles.progressBar}>
-                      <div className={styles.progressFill} style={{ width: `${progress}%` }}></div>
-                    </div>
-                    {currentStreamingRow && (
-                      <div className={styles.streamingCard}>
-                        <p><strong>Row {currentStreamingRow.id}: {currentStreamingRow.question}</strong></p>
-                        <div className={styles.streamingResponses}>
-                          <div className={styles.response}>
-                            <p className={styles.modelName}>🤖 GPT-4</p>
-                            <p>{currentStreamingRow.model_a_response}</p>
-                            <p className={styles.metrics}>⏱️ {currentStreamingRow.model_a_latency}s | 🎯 {(currentStreamingRow.model_a_accuracy * 100).toFixed(1)}%</p>
-                          </div>
-                          <div className={styles.response}>
-                            <p className={styles.modelName}>🤖 DeepSeek</p>
-                            <p>{currentStreamingRow.model_b_response}</p>
-                            <p className={styles.metrics}>⏱️ {currentStreamingRow.model_b_latency}s | 🎯 {(currentStreamingRow.model_b_accuracy * 100).toFixed(1)}%</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </>
             ) : (
-              <p>❌ Upload dataset first</p>
+              <p className={styles.warning}>❌ Complete Setup first (including API Keys in Settings)</p>
             )}
           </div>
         </div>
@@ -357,49 +508,89 @@ Make it clearer, more specific, and more effective. Return ONLY the improved pro
 
       {activeTab === 'results' && (
         <div className={styles.tabContent}>
-          {evaluationRuns.length === 0 ? (
+          {evaluationRuns.length === 0 && !isRunning ? (
             <p>No results yet</p>
           ) : (
-            evaluationRuns.map((run, idx) => (
-              <div key={idx} className={styles.evaluationRun}>
-                <h3>📊 Prompt v{run.version} Evaluation</h3>
-                <p className={styles.runMeta}>{run.created_at}</p>
+            evaluationRuns.map((run, runIdx) => (
+              <div key={runIdx} className={styles.evaluationRun}>
+                <div className={styles.promptSection}>
+                  <h3>📊 Prompt v{run.version} Results</h3>
+                  <div className={styles.promptDisplay}>
+                    <div className={styles.promptBox}>
+                      <p className={styles.promptLabel}>System Prompt:</p>
+                      <p className={styles.promptText}>{run.system_prompt}</p>
+                    </div>
+                    <div className={styles.promptBox}>
+                      <p className={styles.promptLabel}>User Prompt:</p>
+                      <p className={styles.promptText}>{run.user_prompt}</p>
+                    </div>
+                  </div>
+                  <div className={styles.summaryStats}>
+                    <span>⏱️ Total Tokens: {run.total_tokens}</span>
+                    <span>💰 Total Cost: ${run.total_cost.toFixed(4)}</span>
+                  </div>
+                </div>
 
-                <div className={styles.resultsTable}>
-                  <table>
+                {isRunning && (
+                  <div className={styles.progressBar}>
+                    <div className={styles.progressFill} style={{ width: `${progress}%` }}></div>
+                    <span className={styles.progressText}>{progress}%</span>
+                  </div>
+                )}
+
+                <div className={styles.resultsTableWrapper}>
+                  <table className={styles.resultsTable}>
                     <thead>
                       <tr>
                         <th>#</th>
                         <th>Question</th>
-                        <th>GPT-4 Response</th>
-                        <th>Latency</th>
-                        <th>Tokens</th>
-                        <th>Cost</th>
-                        <th>Accuracy</th>
-                        <th>DeepSeek Response</th>
-                        <th>Latency</th>
-                        <th>Tokens</th>
-                        <th>Cost</th>
-                        <th>Accuracy</th>
+                        <th colSpan={5} style={{textAlign: 'center'}}>{run.model_a}</th>
+                        <th colSpan={5} style={{textAlign: 'center'}}>{run.model_b}</th>
                         <th>Winner</th>
+                      </tr>
+                      <tr>
+                        <th></th>
+                        <th></th>
+                        <th>Response</th>
+                        <th>Latency</th>
+                        <th>Tokens</th>
+                        <th>Cost</th>
+                        <th>Accuracy</th>
+                        <th>Response</th>
+                        <th>Latency</th>
+                        <th>Tokens</th>
+                        <th>Cost</th>
+                        <th>Accuracy</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
                       {run.rows.map((row) => (
-                        <tr key={row.id}>
+                        <tr 
+                          key={row.id} 
+                          className={`
+                            ${currentStreamingRow === row.id ? styles.streaming : ''}
+                            ${row.status === 'complete' ? styles.complete : ''}
+                            ${row.status === 'pending' ? styles.pending : ''}
+                          `}
+                        >
                           <td>{row.id}</td>
-                          <td className={styles.question}>{row.question}</td>
-                          <td className={styles.fullResponse}>{row.model_a_response}</td>
-                          <td>{row.model_a_latency}s</td>
+                          <td className={styles.questionCell}>{row.question}</td>
+                          <td className={styles.responseCell}>
+                            <div className={styles.responseText}>{row.model_a_response}</div>
+                          </td>
+                          <td>{row.model_a_latency.toFixed(2)}s</td>
                           <td>{row.model_a_tokens}</td>
-                          <td>${row.model_a_cost}</td>
+                          <td>${row.model_a_cost.toFixed(4)}</td>
                           <td>{(row.model_a_accuracy * 100).toFixed(1)}%</td>
-                          <td className={styles.fullResponse}>{row.model_b_response}</td>
-                          <td>{row.model_b_latency}s</td>
+                          <td className={styles.responseCell}>
+                            <div className={styles.responseText}>{row.model_b_response}</div>
+                          </td>
+                          <td>{row.model_b_latency.toFixed(2)}s</td>
                           <td>{row.model_b_tokens}</td>
-                          <td>${row.model_b_cost}</td>
+                          <td>${row.model_b_cost.toFixed(4)}</td>
                           <td>{(row.model_b_accuracy * 100).toFixed(1)}%</td>
-                          <td className={styles.winner}>🏆 {row.winner === 'gpt-4' ? 'A' : 'B'}</td>
+                          <td>{row.winner && `🏆 ${row.winner === run.model_a ? 'A' : 'B'}`}</td>
                         </tr>
                       ))}
                     </tbody>

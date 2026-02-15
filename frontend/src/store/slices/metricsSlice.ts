@@ -3,10 +3,12 @@ import { fetchJobMetrics, fetchProjectMetrics, fetchMultipleJobMetrics } from '.
 import type { MetricsState } from '../types'
 
 const initialState: MetricsState = {
+  metrics: [],
   jobMetrics: [],
-  selectedJobMetrics: null,
-  projectMetrics: null,
+  selectedJobMetrics: [],
+  projectMetrics: [],
   isLoading: false,
+  loading: false,
   error: null,
 }
 
@@ -18,42 +20,51 @@ const metricsSlice = createSlice({
     builder
       .addCase(fetchJobMetrics.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(fetchJobMetrics.fulfilled, (state, action) => {
         state.isLoading = false
-        state.selectedJobMetrics = action.payload
+        state.loading = false
+        state.selectedJobMetrics = action.payload || []
       })
       .addCase(fetchJobMetrics.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
 
     builder
       .addCase(fetchProjectMetrics.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(fetchProjectMetrics.fulfilled, (state, action) => {
         state.isLoading = false
-        state.projectMetrics = action.payload
+        state.loading = false
+        state.projectMetrics = action.payload || []
       })
       .addCase(fetchProjectMetrics.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
 
     builder
       .addCase(fetchMultipleJobMetrics.pending, (state) => {
         state.isLoading = true
+        state.loading = true
         state.error = null
       })
       .addCase(fetchMultipleJobMetrics.fulfilled, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.jobMetrics = action.payload.metrics || []
       })
       .addCase(fetchMultipleJobMetrics.rejected, (state, action) => {
         state.isLoading = false
+        state.loading = false
         state.error = action.payload as string
       })
   },

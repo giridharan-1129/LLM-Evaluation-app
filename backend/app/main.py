@@ -2,20 +2,10 @@
 FastAPI Main Application
 LLM Evaluation Platform Backend
 """
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
-
-from app.api.endpoints import (
-    auth,
-    projects,
-    prompts,
-    datasets,
-    evaluations,
-    metrics_viz
-)
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +16,34 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - MUST be before other middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
-# Include routers
+# Import and include all routers individually
+from app.api.endpoints import auth
+from app.api.endpoints import projects
+from app.api.endpoints import prompts
+from app.api.endpoints import datasets
+from app.api.endpoints import evaluations
+from app.api.endpoints import metrics_viz
+from app.api.endpoints import evaluation_results
+from app.api.endpoints import evaluate
+
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(prompts.router)
 app.include_router(datasets.router)
 app.include_router(evaluations.router)
 app.include_router(metrics_viz.router)
+app.include_router(evaluation_results.router)
+app.include_router(evaluate.router, prefix="/api/v1")
 
 # Health check endpoint
 @app.get("/health")
@@ -68,4 +70,3 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
